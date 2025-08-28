@@ -1,0 +1,8 @@
+na pasta build/ de cada projeto:
+(tenha um .gitkeep dentro)
+
+cmake -G "MinGW Makefiles" ..
+
+pra gerar o executável:
+
+mingw64-make

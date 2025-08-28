@@ -11,6 +11,10 @@
 static void initialize()
 {
  glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+ glFrontFace(GL_CCW);
+ glCullFace(GL_BACK);
+ glEnable(GL_CULL_FACE);
+ glPolygonMode(Gl_FRONT, GL_FILL);
 }
 
 static void error (int code, const char* msg)

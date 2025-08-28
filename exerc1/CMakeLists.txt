@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 # Nome do projeto
-project(Trab0)
+project(Exerc1)
 
 # Adiciona o caminho para as bibliotecas de inclusão
 include_directories(
@@ -16,7 +16,7 @@ link_directories(
 )
 
 # Adiciona o executável
-add_executable(${PROJECT_NAME} src/test0-glfw.cpp)
+add_executable(${PROJECT_NAME} src/exerc1.cpp)
 
 # Linka as bibliotecas com o executável
 target_link_libraries(${PROJECT_NAME}
