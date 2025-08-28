@@ -16,7 +16,7 @@ link_directories(
 )
 
 # Adiciona o executável
-add_executable(${PROJECT_NAME} src/test0-glfw.cpp)
+add_executable(${PROJECT_NAME} src/esqueleto.cpp)
 
 # Linka as bibliotecas com o executável
 target_link_libraries(${PROJECT_NAME}
