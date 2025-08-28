@@ -5,10 +5,9 @@
 #include <string>
 #include <vector>
 
-// --- SUGESTÃO: Inclua a sua classe Quad ---
-#include "Quad.h" // Supondo que o código da classe Quad está neste ficheiro
+#include "quad.h"
 
-// --- SUGESTÃO: Shaders básicos como strings ---
+// --- Shaders básicos como strings ---
 // Para um esqueleto, é mais fácil ter os shaders aqui do que em ficheiros separados.
 
 // Vertex Shader: Responsável por calcular a posição final de cada vértice.
@@ -32,7 +31,7 @@ const char* fragmentShaderSource = R"(
 )";
 
 
-// --- SUGESTÃO: Função para compilar e linkar os shaders ---
+// --- Função para compilar e linkar os shaders ---
 GLuint createShaderProgram() {
     // Compila o Vertex Shader
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -78,22 +77,21 @@ GLuint createShaderProgram() {
 }
 
 
-// Variáveis globais para os nossos objetos de cena
-QuadPtr myQuad;
+// Variáveis globais para o nosso programa
 GLuint shaderProgram;
 
 
-// Função de inicialização com mais configurações
+// Função de inicialização
 static void initialize()
 {
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Cor de fundo cinza escuro
-
-    // --- SUGESTÃO: Habilitar o teste de profundidade ---
     glEnable(GL_DEPTH_TEST);
 
-    // --- SUGESTÃO: Criar o shader e os objetos aqui ---
+    // --- CENTERPIECE: INICIALIZAÇÃO ---
+    // Crie o seu shader program
     shaderProgram = createShaderProgram();
-    myQuad = Quad::Make(); // Usa a factory para criar um quadrado padrão
+    
+    // Crie e inicialize os seus objetos (ex: myQuad = Quad::Make();) aqui
 }
 
 static void error (int code, const char* msg)
@@ -109,10 +107,9 @@ static void keyboard(GLFWwindow * window, int key, int scancode, int action, int
         glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
 
-// --- SUGESTÃO: Definição da callback de mouse para evitar erro de compilação ---
 static void mousebutton(GLFWwindow* window, int button, int action, int mods)
 {
-    // Por enquanto, esta função não faz nada, mas precisa de existir.
+    // Callback para eventos de mouse (atualmente vazia)
 }
 
 static void resize(GLFWwindow * win, int width, int height)
@@ -120,20 +117,35 @@ static void resize(GLFWwindow * win, int width, int height)
     glViewport(0, 0, width, height);
 }
 
-// Função de display que agora desenha o objeto
+// Função de display (renderização)
 static void display(GLFWwindow * win)
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // --- SUGESTÃO: Ativar o shader e desenhar o objeto ---
+    // --- CENTERPIECE: DESENHO ---
+    // Ative o seu shader program
     glUseProgram(shaderProgram);
+    
+    // Chame as funções de desenho dos seus objetos (ex: myQuad->Draw();) aqui
+    float vertices[] = {
+        -0.5f, -0.5f, // Inferior esquerdo
+         0.5f, -0.5f, // Inferior direito
+         0.5f,  0.5f, // Superior direito
+        -0.5f,  0.5f  // Superior esquerdo
+    };
+    unsigned int indices[] = {
+        0, 1, 2, // Primeiro triângulo
+        2, 3, 0  // Segundo triângulo
+    };
+    QuadPtr myQuad = Quad::Make(vertices, indices);
+
     myQuad->Draw();
 }
 
-// --- SUGESTÃO: Função para limpar os recursos da OpenGL ---
+// Função para limpar os recursos da OpenGL
 static void cleanup() {
     glDeleteProgram(shaderProgram);
-    // O myQuad será limpo automaticamente pelo shared_ptr
+    // Os seus objetos (como shared_ptrs) serão limpos automaticamente
 }
 
 int main(void) {
@@ -172,14 +184,14 @@ int main(void) {
     // Chama a nossa função de inicialização
     initialize();
 
-    // Loop principal (a "centerpiece" agora está na função display)
+    // Loop principal de renderização
     while (!glfwWindowShouldClose(win)) {
         display(win);
         glfwSwapBuffers(win);
         glfwPollEvents();
     }
 
-    // --- SUGESTÃO: Limpar os recursos antes de sair ---
+    // Limpa os recursos antes de sair
     cleanup();
 
     glfwTerminate();

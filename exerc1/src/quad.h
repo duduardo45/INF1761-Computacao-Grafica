@@ -1,13 +1,14 @@
-// --- No seu arquivo Quad.h ---
+#ifndef QUAD_H
+#define QUAD_H
+
+
+#include "shape.h" // Supondo que Shape defina nverts, mode, type
+#include <memory>  // Para std::shared_ptr
+
 
 class Quad;
 using QuadPtr = std::shared_ptr<Quad>;
 
-#ifndef QUAD_H
-#define QUAD_H
-
-#include "shape.h" // Supondo que Shape defina nverts, mode, type
-#include <memory>  // Para std::shared_ptr
 
 class Quad : public Shape {
     unsigned int m_vao;
