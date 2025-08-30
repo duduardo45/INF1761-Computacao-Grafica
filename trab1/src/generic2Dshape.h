@@ -1,8 +1,8 @@
 #ifndef GENERIC2DSHAPE_H
 #define GENERIC2DSHAPE_H
 #pragma once
-#include <glad/gl.h>
-#include <GLFW/glfw3.h>
+
+#include "gl_includes.h"
 
 #include "shape.h"
 
@@ -31,7 +31,8 @@ protected:
         mode = GL_TRIANGLES;
         type = GL_UNSIGNED_INT;
         // Cada vértice tem 2 floats para posição e 3 floats para cor
-        int vertex_stride_in_bytes = (2 + 3) * sizeof(float); // 5 floats por vértice
+        int amt_of_floats_per_vertex = 2 + 3;
+        int vertex_stride_in_bytes = amt_of_floats_per_vertex * sizeof(float); // 5 floats por vértice
 
         // 1. Geração e bind do VAO
         glGenVertexArrays(1, &m_vao);
@@ -40,7 +41,7 @@ protected:
         // 2. Geração, bind e envio de dados para o VBO
         glGenBuffers(1, &m_vbo);
         glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-        glBufferData(GL_ARRAY_BUFFER, 2 * nverts * sizeof(float), dados_vertices, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, amt_of_floats_per_vertex * nverts * sizeof(float), dados_vertices, GL_STATIC_DRAW);
 
         // 3. Configuração dos atributos dos vértices
         // Diz ao OpenGL como interpretar os dados de posição do VBO

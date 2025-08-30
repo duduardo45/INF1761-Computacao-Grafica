@@ -1,6 +1,5 @@
 #define GLAD_GL_IMPLEMENTATION // Necessary for headeronly version.
-#include <glad/gl.h>
-#include <GLFW/glfw3.h>
+#include "gl_includes.h"
 #include <iostream>
 
 #include "error.h"
@@ -49,7 +48,9 @@ static void initialize()
   // glFrontFace(GL_CCW);
   // glCullFace(GL_BACK);
   // glEnable(GL_CULL_FACE);
-  glPolygonMode(GL_FRONT, GL_FILL);
+  // glPolygonMode(GL_FRONT, GL_FILL); // ERRADO
+
+  Error::Check("setup");
 
   // CENTERPIECE
   // inicia Shader Program
@@ -57,10 +58,11 @@ static void initialize()
   shd->AttachVertexShader("../shaders/vertex.glsl");
   shd->AttachFragmentShader("../shaders/fragment.glsl");
   shd->Link();
-
+  
+  Error::Check("shaders");
   // inicia geometria estática
   polygon = Polygon::Make(posicoes, cores, indices, 6, 12);
-
+  Error::Check("polygon");
 }
 
 static void display(GLFWwindow * win)
@@ -83,11 +85,16 @@ int main(void) {
 
     setInputCallbacks(win);
 
+    Error::Check("pre initialize"); 
+
     initialize();
+    glFlush();
+    Error::Check("initialize");
 
     while (!glfwWindowShouldClose(win)) {
       display(win);
       glfwSwapBuffers(win);
+      glFlush();
       glfwPollEvents();
     }
 

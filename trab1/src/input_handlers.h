@@ -1,8 +1,7 @@
 #ifndef INPUT_HANDLERS_H
 #define INPUT_HANDLERS_H
 #pragma once
-#include <glad/gl.h>
-#include <GLFW/glfw3.h>
+#include "gl_includes.h"
 #include <iostream>
 
 static void keyboard(GLFWwindow * window, int key, int scancode, int action, int mods)

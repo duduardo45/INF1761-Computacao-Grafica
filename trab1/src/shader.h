@@ -5,15 +5,17 @@
 class Shader;
 using ShaderPtr = std::shared_ptr<Shader>;
 
-#include <glad/gl.h>
+#include "gl_includes.h"
+#include "error.h"
 #include <fstream>
 #include <iostream>
 #include <sstream> 
 #include <cstdlib>
 
 static GLuint MakeShader(GLenum shadertype, const std::string& filename) {
-
+    
     GLuint id = glCreateShader(shadertype);
+    Error::Check("create shader");
 
     // errorcheck
     if (id == 0) {
@@ -40,11 +42,13 @@ static GLuint MakeShader(GLenum shadertype, const std::string& filename) {
     std::string source = strStream.str();
     const char* csource = source.c_str();
     glShaderSource(id, 1, &csource, 0);
+    Error::Check("set shader source");
 
     // tell OpenGL to compile the shader
     GLint status;
     glCompileShader(id);
     glGetShaderiv(id, GL_COMPILE_STATUS, &status);
+    Error::Check("compile shader");
 
     // errorcheck
     if (!status) {
@@ -64,7 +68,7 @@ class Shader {
     unsigned int m_pid;
 protected:
     Shader() {
-        m_pid - glCreateProgram();
+        m_pid = glCreateProgram();
         if (m_pid == 0) {
             std::cerr << "Could not create program object";
             exit(1);
