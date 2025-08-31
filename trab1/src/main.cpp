@@ -19,6 +19,7 @@ static void initialize()
     // config do OpenGL
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glEnable(GL_PROGRAM_POINT_SIZE); // Permite que o shader controle o tamanho do ponto
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     Error::Check("setup");
 
   // CENTERPIECE

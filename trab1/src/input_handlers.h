@@ -5,12 +5,31 @@
 #include "drawing.h"
 #include <iostream>
 
+bool modoWireframe = false;
+
 static void keyboard(GLFWwindow * window, int key, int scancode, int action, int mods)
 {
     if (key == GLFW_KEY_Q && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     else if (key == GLFW_KEY_C && action == GLFW_PRESS)
         drawing::clearScene();
+    // Verifica se a tecla pressionada é a 'T'
+    else if (key == GLFW_KEY_T && action == GLFW_PRESS)
+    {
+        // Inverte o estado atual
+        modoWireframe = !modoWireframe;
+
+        if (modoWireframe)
+        {
+            // Ativa o modo wireframe
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        }
+        else
+        {
+            // Ativa o modo de preenchimento (fill)
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        }
+    }
 }
 
 static void cursorpos(GLFWwindow * win, double xpos, double ypos)
