@@ -140,6 +140,14 @@ void drawScene() {
         polygon->Draw();
     }
 }
+
+void clearScene() {
+    scene_polygons.clear();
+    current_vertices_data.clear();
+    is_drawing = false;
+    std::cout << "Cena limpa." << std::endl;
+}
+
 } // namespace drawing
 #endif
 

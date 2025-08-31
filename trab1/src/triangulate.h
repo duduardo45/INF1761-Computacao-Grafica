@@ -107,7 +107,7 @@ std::shared_ptr<int> TriangulateEarClipping(const float* pontos, int n_vertices)
     
     int vertices_left = n_vertices;
     Node* current_node = polygon_nodes[0];
-    int watchdog = n_vertices * n_vertices; // Prevenção contra loops infinitos
+    int watchdog = n_vertices * n_vertices*3; // Prevenção contra loops infinitos
 
     while (vertices_left > 3 && watchdog-- > 0) {
         bool ear_found = false;
@@ -157,7 +157,7 @@ std::shared_ptr<int> TriangulateEarClipping(const float* pontos, int n_vertices)
                 float cross_next = CrossProduct(vertex_coords[prev_node->index], vertex_coords[next_node->index], vertex_coords[next_node->next->index]);
                 next_node->is_convex = (polygon_orientation_sum > 0.0f) ? (cross_next > 0.0f) : (cross_next < 0.0f);
                 
-                current_node = next_node; // Continua a busca a partir do próximo nó
+                current_node = prev_node; // Continua a busca a partir do próximo nó
                 ear_found = true;
             }
         }

@@ -2,13 +2,15 @@
 #define INPUT_HANDLERS_H
 #pragma once
 #include "gl_includes.h"
-#include "drawing.h" // Inclui a nossa nova lógica de desenho
+#include "drawing.h"
 #include <iostream>
 
 static void keyboard(GLFWwindow * window, int key, int scancode, int action, int mods)
 {
     if (key == GLFW_KEY_Q && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GLFW_TRUE);
+    else if (key == GLFW_KEY_C && action == GLFW_PRESS)
+        drawing::clearScene();
 }
 
 static void cursorpos(GLFWwindow * win, double xpos, double ypos)
@@ -28,17 +30,14 @@ static void mousebutton(GLFWwindow * win, int button, int action, int mods)
         double xpos, ypos;
         glfwGetCursorPos(win, &xpos, &ypos);
 
-        // Converte a posição da tela para a posição do framebuffer (considerando displays retina)
-        // E inverte o eixo Y para corresponder ao sistema de coordenadas do OpenGL
-        int win_w, win_h, fb_w, fb_h;
-        glfwGetWindowSize(win, &win_w, &win_h);
+        int fb_w, fb_h;
         glfwGetFramebufferSize(win, &fb_w, &fb_h);
         
-        float x_world = (float)(xpos * fb_w / win_w);
-        float y_world = (float)((win_h - ypos) * fb_h / win_h);
+        // Converte coordenadas de tela (pixels) para Coordenadas de Dispositivo Normalizadas (NDC) [-1, 1]
+        float x_ndc = ((float)xpos / (float)fb_w) * 2.0f - 1.0f;
+        float y_ndc = (1.0f - ((float)ypos / (float)fb_h)) * 2.0f - 1.0f;
 
-        // Despacha o evento para o nosso manipulador de desenho
-        drawing::handleMouseClick(x_world, y_world, button);
+        drawing::handleMouseClick(x_ndc, y_ndc, button);
     }
 }
 
@@ -48,9 +47,9 @@ static void resize(GLFWwindow * win, int width, int height)
 }
 
 static void setInputCallbacks(GLFWwindow * win) {
-    glfwSetFramebufferSizeCallback(win, resize);   // Callback de redimensionamento
-    glfwSetKeyCallback(win, keyboard);           // Callback de teclado
-    glfwSetMouseButtonCallback(win, mousebutton); // Callback de botões do mouse
+    glfwSetFramebufferSizeCallback(win, resize);
+    glfwSetKeyCallback(win, keyboard);
+    glfwSetMouseButtonCallback(win, mousebutton);
 }
 
 #endif
