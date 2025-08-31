@@ -34,15 +34,20 @@ float CrossProduct(Point p1, Point p2, Point p3) {
 
 // Verifica se um ponto P está dentro do triângulo ABC
 // Assume que A, B, C estão em ordem anti-horária (CCW).
-bool IsPointInTriangle(Point p, Point a, Point b, Point c) {
+bool IsPointInTriangle(Point p, Point a, Point b, Point c, bool is_ccw) {
     // Usando a técnica "same-side" com produto vetorial.
     // O ponto deve estar à esquerda de todas as três arestas (AB, BC, CA).
     float cross_ab = CrossProduct(a, b, p);
     float cross_bc = CrossProduct(b, c, p);
     float cross_ca = CrossProduct(c, a, p);
+
+    bool result = (cross_ab >= 0.0f) && (cross_bc >= 0.0f) && (cross_ca >= 0.0f);
+    if (!is_ccw) {
+        result = (cross_ab <= 0.0f) && (cross_bc <= 0.0f) && (cross_ca <= 0.0f);
+    }
     
     // Se todos os sinais forem positivos (ou zero), o ponto está dentro ou na borda.
-    return (cross_ab >= 0.0f) && (cross_bc >= 0.0f) && (cross_ca >= 0.0f);
+    return result;
 }
 
 /**
@@ -127,7 +132,8 @@ std::shared_ptr<int> TriangulateEarClipping(const float* pontos, int n_vertices)
                         vertex_coords[test_node->index],
                         vertex_coords[prev_node->index],
                         vertex_coords[current_node->index],
-                        vertex_coords[next_node->index])) 
+                        vertex_coords[next_node->index],
+                        polygon_orientation_sum > 0.0f)) 
                     {
                         is_valid_ear = false;
                         break;
