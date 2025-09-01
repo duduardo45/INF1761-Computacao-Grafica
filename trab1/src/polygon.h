@@ -32,6 +32,11 @@ public:
     return polygon;
 
   }
+  static PolygonPtr Make (float* dados_vertices, unsigned int* indices, int nverts, int n_indices) {
+    PolygonPtr polygon (new Polygon(dados_vertices, indices, nverts, n_indices));
+    glFlush();
+    return polygon;
+  }
   virtual ~Polygon () {}
   virtual void Draw () {
     Generic2dShape::Draw();

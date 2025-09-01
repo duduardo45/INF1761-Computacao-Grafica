@@ -83,9 +83,9 @@ public:
         }
 
         std::vector<float> positions, colors;
-        getPositionsAndColors(positions, colors);
+        // getPositionsAndColors(positions, colors);
         
-        PolygonPtr polygon = Polygon::Make(positions.data(), colors.data(), final_indices.data(), num_verts, final_indices.size());
+        PolygonPtr polygon = Polygon::Make(current_vertices_data.data(), final_indices.data(), num_verts, final_indices.size());
         current_vertices_data.clear();
         return polygon;
     }
