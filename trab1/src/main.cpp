@@ -7,7 +7,7 @@
 #include "shader.h"
 
 #include "polygon.h"
-#include "drawing.h" // Incluído para a nova funcionalidade
+#include "scene.h" // Incluído para a nova funcionalidade
 
 static GLFWwindow* WindowSetup(int width, int height);
 static void error (int code, const char* msg);
@@ -32,8 +32,8 @@ static void initialize()
     Error::Check("shaders");
     
     // Inicializa os recursos necessários para o desenho interativo
-    drawing::initialize(shd);
-    Error::Check("drawing::initialize");
+    scene::initialize(shd);
+    Error::Check("scene::initialize");
 }
 
 static void display(GLFWwindow * win)
@@ -43,10 +43,10 @@ static void display(GLFWwindow * win)
     shd->UseProgram();
 
     // Desenha os polígonos já finalizados
-    drawing::drawScene();
+    scene::drawScene();
     
     // Desenha o preview (pontos e linhas) do polígono em construção
-    drawing::drawPreview();
+    scene::drawPreview();
     
     Error::Check("display");
 }
@@ -65,8 +65,8 @@ int main(void) {
         glfwPollEvents();
     }
     
-    // Libera os recursos do OpenGL criados em drawing.h
-    drawing::cleanup();
+    // Libera os recursos do OpenGL criados em scene.h
+    scene::cleanup();
 
     glfwTerminate();
     return 0;
