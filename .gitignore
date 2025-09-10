@@ -2,6 +2,6 @@
 **/CMakeFiles
 **/build/*
 .vscode
-*.zip
+/**/*.zip
 
 !.gitkeep
