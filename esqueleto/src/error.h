@@ -1,11 +1,12 @@
 #ifndef ERROR_H
 #define ERROR_H
-
+#pragma once
 #include <string>
 
-#include <glad/gl.h>
 #include <iostream>
 #include <cstdlib>
+
+#include "gl_includes.h"
 
 class Error {
   public:
