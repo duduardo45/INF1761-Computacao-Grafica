@@ -5,6 +5,7 @@
 #include "gl_includes.h"
 
 #include <memory>
+#include <vector>
 class Shape;
 using ShapePtr = std::shared_ptr<Shape>;
 
@@ -21,16 +22,19 @@ class Shape {
 
 protected:
     // Construtor agora armazena vbo e ebo
-    Shape(float* dados_vertices, unsigned int* indices, int nverts, int n_indices) : 
+    // Novo argumento: const std::vector<int>& attr_sizes
+    // attr_sizes: cada elemento indica quantos floats para cada atributo extra (além da posição)
+    Shape(float* dados_vertices, unsigned int* indices, int nverts, int n_indices, const std::vector<int>& attr_sizes) : 
     nverts(nverts),
     n_indices(n_indices)
     {
         // Define os parâmetros para o Draw()
         mode = GL_TRIANGLES;
         type = GL_UNSIGNED_INT;
-        // Cada vértice tem 2 floats para posição e 3 floats para cor
-        int amt_of_floats_per_vertex = 2 + 3;
-        int vertex_stride_in_bytes = amt_of_floats_per_vertex * sizeof(float); // 5 floats por vértice
+        // Cada vértice tem 2 floats para posição e N floats para atributos extras
+        int amt_of_floats_per_vertex = 2; // posição
+        for (int sz : attr_sizes) amt_of_floats_per_vertex += sz;
+        int vertex_stride_in_bytes = amt_of_floats_per_vertex * sizeof(float);
 
         // 1. Geração e bind do VAO
         glGenVertexArrays(1, &m_vao);
@@ -46,9 +50,15 @@ protected:
         glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, vertex_stride_in_bytes, (void*)0);
         glEnableVertexAttribArray(0);
 
-        // Diz ao OpenGL como interpretar os dados de cor do VBO
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, vertex_stride_in_bytes, (void*)(2 * sizeof(float)));
-        glEnableVertexAttribArray(1);
+        // Configura atributos extras
+        int attrib_index = 1;
+        int offset_floats = 2;
+        for (int sz : attr_sizes) {
+            glVertexAttribPointer(attrib_index, sz, GL_FLOAT, GL_FALSE, vertex_stride_in_bytes, (void*)(offset_floats * sizeof(float)));
+            glEnableVertexAttribArray(attrib_index);
+            offset_floats += sz;
+            attrib_index++;
+        }
 
         // 4. Geração, bind e envio de dados para o EBO
         glGenBuffers(1, &m_ebo);
@@ -63,9 +73,10 @@ protected:
     }
 
 public:
-    static ShapePtr Make(float* dados_vertices, unsigned int* indices, int nverts, int n_indices) {
+    // Novo argumento: const std::vector<int>& attr_sizes
+    static ShapePtr Make(float* dados_vertices, unsigned int* indices, int nverts, int n_indices, const std::vector<int>& attr_sizes) {
         // é trabalho do caller interpolar as posições e cores
-        return ShapePtr(new Shape(dados_vertices, indices, nverts, n_indices));
+        return ShapePtr(new Shape(dados_vertices, indices, nverts, n_indices, attr_sizes));
     }
 
     // Destrutor que libera os buffers da GPU

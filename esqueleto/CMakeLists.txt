@@ -22,4 +22,5 @@ add_executable(${PROJECT_NAME} src/esqueleto.cpp)
 target_link_libraries(${PROJECT_NAME}
     glfw3.lib
     opengl32.lib
+    glm::glm-header-only
 )
