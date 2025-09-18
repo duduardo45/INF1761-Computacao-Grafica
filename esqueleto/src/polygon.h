@@ -10,8 +10,8 @@ using PolygonPtr = std::shared_ptr<Polygon>;
 
 class Polygon : public Shape {
 protected:
-  Polygon(float* dados_vertices, unsigned int* indices, int nverts, int n_indices) : 
-    Shape(dados_vertices, indices, nverts, n_indices) 
+  Polygon(float* dados_vertices, unsigned int* indices, int nverts, int n_indices, const std::vector<int>& attr_sizes = {3}) : 
+    Shape(dados_vertices, indices, nverts, n_indices, attr_sizes) 
     {};
 public:
   static PolygonPtr Make (float* posicoes, float* cores, unsigned int* indices, int nverts, int n_indices) {

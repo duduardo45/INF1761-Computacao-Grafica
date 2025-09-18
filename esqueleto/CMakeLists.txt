@@ -8,6 +8,7 @@ project(Trab0)
 include_directories(
     "${CMAKE_SOURCE_DIR}/libs/glad/include"
     "${CMAKE_SOURCE_DIR}/libs/glfw/include"
+    "${CMAKE_SOURCE_DIR}/libs/glm/include"
 )
 
 # Adiciona o caminho para as bibliotecas de linkagem

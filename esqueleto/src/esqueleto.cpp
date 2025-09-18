@@ -5,9 +5,10 @@
 
 #include "error.h"
 #include "input_handlers.h"
-#include "shader.h"
+// #include "shader.h"
+#include "scene.h"
 
-ShaderPtr shd;
+// ShaderPtr shd;
 
 static void initialize()
 {
@@ -18,26 +19,22 @@ static void initialize()
   // glEnable(GL_CULL_FACE);
   // glPolygonMode(GL_FRONT, GL_FILL); // ERRADO
 
-  // CENTERPIECE
-  // inicia Shader Program
-  shd = Shader::Make();
-  shd->AttachVertexShader("../shaders/vertex.glsl");
-  shd->AttachFragmentShader("../shaders/fragment.glsl");
-  shd->Link();
+  // inicia Shader Program e SceneGraph
+  scene::graph()->initializeBaseShader("../shaders/vertex.glsl","../shaders/fragment.glsl");
+  // scene::graph()->setView(0,1,0,1,0,1);
 
+  // CENTERPIECE
   // inicia geometria estática
 
 }
 
 static void display(GLFWwindow * win)
 {
-  // CENTERPIECE
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  glFlush();
-  shd->UseProgram();
 
+  // CENTERPIECE?
   // desenha geometria
-
+  scene::graph()->draw();
   
   // errorcheck
   Error::Check("display");

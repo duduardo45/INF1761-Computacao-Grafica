@@ -83,6 +83,10 @@ public:
         glDeleteProgram(m_pid);
     }
 
+    unsigned int GetShaderID() const {
+        return m_pid;
+    }
+
     void AttachVertexShader(const std::string& filename) {
         GLuint sid = MakeShader(GL_VERTEX_SHADER, filename);
         glAttachShader(m_pid, sid);
@@ -111,6 +115,58 @@ public:
         glUseProgram(m_pid);
     }
 };
+
+class ShaderStack { // singleton
+    // BACALHAU falta adaptar para ter o batching dos comandos de draw pelo shader
+private:
+    std::vector<ShaderPtr> stack;
+    ShaderPtr last_used_shader;
+
+    ShaderStack() {
+        stack.push_back(Shader::Make());
+    }
+
+    // A amizade agora é concedida à função livre 'shaderStack()' do namespace.
+    friend ShaderStack& shaderStack();
+public:
+    ShaderStack(const ShaderStack&) = delete;
+    ShaderStack& operator=(const ShaderStack&) = delete;
+    ~ShaderStack() = default;
+    void push(ShaderPtr shader) {
+        // only push if it's different from the current top
+        if (shader != stack.back()) {
+            shader->UseProgram();
+            last_used_shader = shader;
+            stack.push_back(shader);
+        }
+    }
+    void pop() {
+        if (stack.size() > 1) {
+            stack.pop_back();
+        } else {
+            std::cerr << "Warning: Attempt to pop the base shader from the shader stack." << std::endl;
+        }
+    }
+    ShaderPtr top() {
+        ShaderPtr current_shader = stack.back();
+        if (current_shader != last_used_shader) {
+            current_shader->UseProgram();
+            last_used_shader = current_shader;
+        }
+        return current_shader;
+    }
+    unsigned int topId() {
+        return top()->GetShaderID();
+    }
+    ShaderPtr getLastUsedShader() const {
+        return last_used_shader;
+    }
+};
+
+inline ShaderStack& shaderStack() {
+    static ShaderStack instance;
+    return instance;
+}
 
 static GLuint educationalMakeShader(GLenum shadertype, const std::string& filename) {
 

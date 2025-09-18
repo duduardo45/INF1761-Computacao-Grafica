@@ -3,6 +3,7 @@
 #pragma once
 
 #include "gl_includes.h"
+#include "shader.h"
 
 #include <memory>
 #include <vector>

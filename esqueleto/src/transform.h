@@ -3,17 +3,18 @@
 #pragma once
 
 #include <memory>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+
+namespace transform {
+    
+    
 class Transform;
 using TransformPtr = std::shared_ptr<Transform>;
 
 class TransformStack;
 using TransformStackPtr = std::shared_ptr<TransformStack>;
-
-
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-
-
 
 class Transform {
     glm::mat4 matrix; // Matriz de transformação 4x4
@@ -46,40 +47,56 @@ class Transform {
         void scale(float x, float y, float z) {
             matrix = glm::scale(matrix, glm::vec3(x, y, z));
         }
+
+        void orthographic(float left, float right, float bottom, float top, float near, float far) {
+            matrix = glm::ortho(left, right, bottom, top, near, far);
+        }
         
-        const glm::mat4* getMatrix() const {
-            return &matrix;
+        const glm::mat4& getMatrix() const {
+            return matrix;
         }
 };
+
+TransformStack& stack();
 
 class TransformStack {
+private:
     std::vector<glm::mat4> stack;
+
     TransformStack() {
-        // Inicializa a pilha com a matriz identidade
         stack.push_back(glm::mat4(1.0f));
     }
-    public:
-        static TransformStackPtr MakeTransformStack() {
-            return TransformStackPtr(new TransformStack());
-        }
 
-        ~TransformStack()=default;
+    // A amizade agora é concedida à função livre 'stack()' do namespace.
+    friend TransformStack& stack();
 
-        void push(const glm::mat4& matrix) {
-            stack.push_back(*(top()) * matrix);
-        }
+public:
+    TransformStack(const TransformStack&) = delete;
+    TransformStack& operator=(const TransformStack&) = delete;
+    ~TransformStack() = default;
 
-        void pop() {
-            if (stack.size() > 1) { // Evita remover a última matriz
-                stack.pop_back();
-            } else {
-                std::cerr << "Warning: Attempt to pop from an empty transform stack." << std::endl;
-            }
-        }
+    void push(const glm::mat4& matrix_to_apply) {
+        stack.push_back(top() * matrix_to_apply);
+    }
 
-        const glm::mat4* top() const {
-            return &stack.back();
+    void pop() {
+        if (stack.size() > 1) {
+            stack.pop_back();
+        } else {
+            std::cerr << "Warning: Attempt to pop the base identity matrix from the transform stack." << std::endl;
         }
+    }
+
+    const glm::mat4& top() const {
+        return stack.back();
+    }
 };
 
+// Definição da função de acesso (inline para uso no header)
+inline TransformStack& stack() {
+    static TransformStack instance;
+    return instance;
+}
+
+}
 #endif
