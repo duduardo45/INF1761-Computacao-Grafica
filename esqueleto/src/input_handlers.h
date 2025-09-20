@@ -12,7 +12,7 @@ static void keyboard(GLFWwindow * window, int key, int scancode, int action, int
     if (key == GLFW_KEY_Q && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     else if (key == GLFW_KEY_C && action == GLFW_PRESS)
-        scene::clearScene();
+        {}// scene::graph()->clearGraph();
     // Verifica se a tecla pressionada é a 'T'
     else if (key == GLFW_KEY_T && action == GLFW_PRESS)
     {
@@ -56,7 +56,7 @@ static void mousebutton(GLFWwindow * win, int button, int action, int mods)
         float x_ndc = ((float)xpos / (float)fb_w) * 2.0f - 1.0f;
         float y_ndc = (1.0f - ((float)ypos / (float)fb_h)) * 2.0f - 1.0f;
 
-        scene::handleMouseClick(x_ndc, y_ndc, button);
+        // scene::handleMouseClick(x_ndc, y_ndc, button);
     }
 }
 

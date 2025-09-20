@@ -12,7 +12,7 @@
 static void initialize()
 {
   // config do OpenGL
-  glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+  glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
   // glFrontFace(GL_CCW);
   // glCullFace(GL_BACK);
   // glEnable(GL_CULL_FACE);
@@ -31,7 +31,9 @@ static void display(GLFWwindow * win)
 {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  // CENTERPIECE?
+  // CENTERPIECE
+  // atualiza geometria dinâmica
+
   // desenha geometria
   scene::graph()->draw();
   
@@ -39,9 +41,11 @@ static void display(GLFWwindow * win)
   Error::Check("display");
 }
 
+static GLFWwindow* WindowSetup(int width, int height);
+
 int main(void) {
 
-    GLFWwindow* win = WindowSetup(800, 600);
+    GLFWwindow* win = WindowSetup(1000, 1000);
 
     setInputCallbacks(win);
 
@@ -87,10 +91,9 @@ static GLFWwindow* WindowSetup(int width, int height) {
     }
   glfwMakeContextCurrent(win);
 
-  #ifdef GLAD_GL_H_
-    if (!gladLoadGL(glfwGetProcAddress)) {
-      printf("Failed to initialize GLAD OpenGL context\n");
-      exit(1);
-    }
-  #endif
+  if (!gladLoadGL(glfwGetProcAddress)) {
+    printf("Failed to initialize GLAD OpenGL context\n");
+    exit(1);
+  }
+  return win;
 }

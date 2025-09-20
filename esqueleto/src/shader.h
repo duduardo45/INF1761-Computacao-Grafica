@@ -11,6 +11,7 @@ using ShaderPtr = std::shared_ptr<Shader>;
 #include <iostream>
 #include <sstream> 
 #include <cstdlib>
+#include <vector>
 
 static GLuint MakeShader(GLenum shadertype, const std::string& filename) {
     

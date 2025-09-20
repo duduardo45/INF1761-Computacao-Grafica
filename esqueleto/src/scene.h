@@ -7,6 +7,7 @@
 #include "shape.h"
 #include "shader.h"
 #include "transform.h"
+#include "error.h"
 #include <vector>
 #include <string>
 #include <algorithm>
@@ -28,7 +29,7 @@ using SceneGraphPtr = std::shared_ptr<SceneGraph>;
 
 class Node { // BACALHAU falta fazer as subclasses de nó
     int id;
-    static int next_id;
+    inline static int next_id = 0;
     std::string name;
     ShapePtr shape;
     ShaderPtr shader;
@@ -49,6 +50,32 @@ class Node { // BACALHAU falta fazer as subclasses de nó
 
         int getId() {
             return id;
+        }
+
+        const std::string& getName() const {
+            return name;
+        }
+
+        transform::TransformPtr getTransform() {
+            return transform;
+        }
+
+        NodePtr getChild(int index) {
+            if (index < 0 || index >= children.size()) {
+                std::cerr << "Index out of bounds in getChild" << std::endl;
+                return nullptr;
+            }
+            return children[index];
+        }
+
+        NodePtr getChildByName(const std::string& child_name) {
+            for (NodePtr child : children) {
+                if (child->name == child_name) {
+                    return child;
+                }
+            }
+            std::cerr << "Child with name " << child_name << " not found in getChildByName" << std::endl;
+            return nullptr;
         }
 
         void addChild(NodePtr child) {
@@ -90,29 +117,34 @@ class Node { // BACALHAU falta fazer as subclasses de nó
         }
 
         void draw() {
+            printf("Drawing node %s (id=%d)\n", name.c_str(), id);
+
+            Error::Check("scene::Node::draw start");
             transform::TransformStack& transform_stack = transform::stack();
-            // Combina a transformação do pai com a transformação local
-            transform_stack.push(transform->getMatrix());
+            // Combina a transformação do pai com a transformação local dentro do push
+            if (transform) transform_stack.push(transform->getMatrix());
 
             if (shader) shaderStack().push(shader);
 
-
+            Error::Check("scene::Node::draw before drawing shape");
             // Desenha a forma associada a este nó, se existir
             if (shape) {
                 
                 // Envia a matriz de transformação para o shader
                 unsigned int shader_program = shaderStack().top()->GetShaderID();
-                unsigned int transformLoc = glGetUniformLocation(shader_program, "transform");
+                unsigned int transformLoc = glGetUniformLocation(shader_program, "M");
                 glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform_stack.top()));
                 shape->Draw();
             }
-
+            Error::Check("scene::Node::draw after drawing shape");
             // Desenha os filhos
             for (NodePtr child : children) {
                 child->draw();
             }
-            transform_stack.pop();
+            Error::Check("scene::Node::draw after drawing children");
+            if (transform) transform_stack.pop();
             if (shader) shaderStack().pop();
+            Error::Check("scene::Node::draw end");
         }
 };
 
@@ -127,12 +159,12 @@ class SceneGraph {
 
         
         SceneGraph(ShaderPtr base) {
-            root = Node::MakeNode("root", nullptr, nullptr, transform::Transform::MakeTransform());
+            root = Node::MakeNode("root", nullptr, base, transform::Transform::Make());
             base_shader = base;
             currentNode = root;
             name_map["root"] = root;
             node_map[root->getId()] = root;
-            view_transform = transform::Transform::MakeTransform();
+            view_transform = transform::Transform::Make();
             view_transform->orthographic(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f); // Inicializa com ortográfica padrão
         }
 
@@ -155,6 +187,15 @@ class SceneGraph {
             base_shader->Link();
         }
 
+        void clearGraph() {
+            root = Node::MakeNode("root", nullptr, base_shader, transform::Transform::Make());
+            currentNode = root;
+            name_map.clear();
+            node_map.clear();
+            name_map["root"] = root;
+            node_map[root->getId()] = root;
+        }
+
         void draw() {
             // Aplica a transformação de visão
             transform::stack().push(view_transform->getMatrix());
@@ -162,6 +203,7 @@ class SceneGraph {
                 root->draw();
             }
             transform::stack().pop();
+            printf("\n--------------------------------\n\n");
         }
 };
     
