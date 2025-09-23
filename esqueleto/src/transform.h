@@ -4,6 +4,8 @@
 
 #include <memory>
 #include "gl_includes.h"
+#include <vector>
+#include <iostream>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -23,9 +25,16 @@ class Transform {
         // Inicializa a matriz como identidade
         matrix = glm::mat4(1.0f);
     }
+    Transform(glm::mat4 matrix) :
+        matrix(matrix)
+    {}
     public:
         static TransformPtr Make() {
             return TransformPtr(new Transform());
+        }
+
+        static TransformPtr Make(glm::mat4 matrix) {
+            return TransformPtr(new Transform(matrix));
         }
 
         ~Transform()=default;
@@ -36,6 +45,10 @@ class Transform {
 
         void reset() {
             matrix = glm::mat4(1.0f);
+        }
+
+        void setMatrix(glm::mat4 matrix) {
+            this->matrix = matrix;
         }
 
         void multiply(const glm::mat4& other) {

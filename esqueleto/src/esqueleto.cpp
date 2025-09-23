@@ -45,7 +45,7 @@ static GLFWwindow* WindowSetup(int width, int height);
 
 int main(void) {
 
-    GLFWwindow* win = WindowSetup(1000, 1000);
+    GLFWwindow* win = WindowSetup(800, 800);
 
     setInputCallbacks(win);
 

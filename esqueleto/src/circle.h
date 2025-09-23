@@ -37,9 +37,9 @@ class Circle : public Polygon { // BACALHAU falta extender para circulos com mai
             float y = y_center + radius * sin(angle);
             vertices[i * 5 + 0] = x;
             vertices[i * 5 + 1] = y;
-            vertices[i * 5 + 2] = corRGB[0];
-            vertices[i * 5 + 3] = corRGB[1];
-            vertices[i * 5 + 4] = corRGB[2];
+            vertices[i * 5 + 2] = corRGB[3*has_center_vertex + 0];
+            vertices[i * 5 + 3] = corRGB[3*has_center_vertex + 1];
+            vertices[i * 5 + 4] = corRGB[3*has_center_vertex + 2];
         }
         return vertices;
     }
