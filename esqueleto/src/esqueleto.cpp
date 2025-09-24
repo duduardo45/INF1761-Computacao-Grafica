@@ -9,6 +9,11 @@
 
 // ShaderPtr shd;
 
+
+double savedTime = 0;
+double updateTimer = 0;
+const double updateInterval = 1.0/60.0; // 60 fps
+
 static void initialize()
 {
   // config do OpenGL
@@ -52,9 +57,18 @@ int main(void) {
     initialize();
 
     while (!glfwWindowShouldClose(win)) {
-      display(win);
-      glfwSwapBuffers(win);
-      glfwPollEvents();
+      double currentTime =  glfwGetTime();
+      double elapseTime = currentTime - savedTime;
+      savedTime = currentTime;
+        
+      updateTimer += elapseTime;
+
+      if(updateTimer >= updateInterval){
+        display(win);
+        glfwSwapBuffers(win);
+        glfwPollEvents();
+        updateTimer = 0;
+      }
     }
 
     glfwTerminate();
