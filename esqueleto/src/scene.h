@@ -16,7 +16,7 @@
 #include <cmath>
 #include <iostream>
 
-#include "node_types.h"
+#include "generic_node.h"
 
 // Encapsulamos toda a lógica de desenho em um namespace para organização.
 namespace scene {
@@ -37,7 +37,7 @@ private:
 
     
     SceneGraph(ShaderPtr base) {
-        root = Node::Make("root", nullptr, base, transform::Transform::Make());
+        root = GenericNode::Make("root", nullptr, base, transform::Transform::Make());
         base_shader = base;
         currentNode = root;
         name_map["root"] = root;
@@ -101,7 +101,7 @@ public:
         if (!transform) {
             transform = transform::Transform::Make();
         }
-        NodePtr new_node = Node::Make(name, shape, shader, transform);
+        NodePtr new_node = GenericNode::Make(name, shape, shader, transform);
         addNode(new_node, parent);
     }
 
@@ -207,7 +207,7 @@ public:
     void duplicateNode(const std::string& name, const std::string& new_name) {
         NodePtr node = getNodeByName(name);
         if (node) {
-            NodePtr new_node = Node::Make(
+            NodePtr new_node = GenericNode::Make(
                 new_name, 
                 node->getShape(), 
                 node->getShader(), 
@@ -263,7 +263,7 @@ public:
         if (transform == nullptr) {
             transform = transform::Transform::Make();
         }
-        addSiblingAfter(Node::Make(name, shape, shader, transform), node_to_add_after);
+        addSiblingAfter(GenericNode::Make(name, shape, shader, transform), node_to_add_after);
     }
 
     // encapsula as funções do transform para o current node
@@ -314,7 +314,7 @@ public:
 
     void newNodeAbove(const std::string& new_name) {
         NodePtr old_current = currentNode, old_parent = currentNode->getParent();
-        addSiblingAfter(Node::Make(new_name));
+        addSiblingAfter(GenericNode::Make(new_name));
         currentNode->addChild(old_current);
         old_parent->removeChild(old_current);
         old_current->setParent(currentNode);
@@ -327,7 +327,7 @@ public:
         // if (parent) {
             
         //     int idx = -1;
-        //     NodePtr new_node = Node::Make(name, nullptr, nullptr, transform::Transform::Make());
+        //     NodePtr new_node = GenericNode::Make(name, nullptr, nullptr, transform::Transform::Make());
         //     idx = parent->getChildIndex(currentNode);
         //     if (idx != -1) {
         //         parent->removeChild(currentNode);
@@ -365,7 +365,7 @@ public:
     }
 
     void clearGraph() {
-        root = Node::Make("root", nullptr, base_shader, transform::Transform::Make());
+        root = GenericNode::Make("root", nullptr, base_shader, transform::Transform::Make());
         currentNode = root;
         name_map.clear();
         node_map.clear();
