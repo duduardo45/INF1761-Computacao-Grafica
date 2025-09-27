@@ -1,10 +1,8 @@
 #ifndef SHADER_H
 #define SHADER_H
 #pragma once
-#include <memory>
-class Shader;
-using ShaderPtr = std::shared_ptr<Shader>;
 
+#include <memory>
 #include "gl_includes.h"
 #include "error.h"
 #include <fstream>
@@ -12,6 +10,15 @@ using ShaderPtr = std::shared_ptr<Shader>;
 #include <sstream> 
 #include <cstdlib>
 #include <vector>
+
+namespace shader {
+
+class Shader;
+using ShaderPtr = std::shared_ptr<Shader>;
+
+
+class ShaderStack;
+using ShaderStackPtr = std::shared_ptr<ShaderStack>;
 
 static GLuint MakeShader(GLenum shadertype, const std::string& filename) {
     
@@ -128,7 +135,7 @@ private:
     }
 
     // A amizade agora é concedida à função livre 'shaderStack()' do namespace.
-    friend ShaderStack& shaderStack();
+    friend ShaderStackPtr stack();
 public:
     ShaderStack(const ShaderStack&) = delete;
     ShaderStack& operator=(const ShaderStack&) = delete;
@@ -164,34 +171,36 @@ public:
     }
 };
 
-inline ShaderStack& shaderStack() {
-    static ShaderStack instance;
+inline ShaderStackPtr stack() {
+    static ShaderStackPtr instance = ShaderStackPtr(new ShaderStack());
     return instance;
 }
 
-static GLuint educationalMakeShader(GLenum shadertype, const std::string& filename) {
+// static GLuint educationalMakeShader(GLenum shadertype, const std::string& filename) {
 
-    GLuint id = glCreateShader(shadertype);
+//     GLuint id = glCreateShader(shadertype);
 
-    // open the shader file
-    std::ifstream fp;
-    fp.open(filename); 
+//     // open the shader file
+//     std::ifstream fp;
+//     fp.open(filename); 
 
-    // read the shader file content
-    std::stringstream strStream;
-    strStream << fp.rdbuf();
+//     // read the shader file content
+//     std::stringstream strStream;
+//     strStream << fp.rdbuf();
 
-    // pass the source string to OpenGL
-    std::string source = strStream.str();
-    const char* csource = source.c_str();
-    glShaderSource(id, 1, &csource, 0);
+//     // pass the source string to OpenGL
+//     std::string source = strStream.str();
+//     const char* csource = source.c_str();
+//     glShaderSource(id, 1, &csource, 0);
 
-    // tell OpenGL to compile the shader
-    GLint status;
-    glCompileShader(id);
-    glGetShaderiv(id, GL_COMPILE_STATUS, &status);
+//     // tell OpenGL to compile the shader
+//     GLint status;
+//     glCompileShader(id);
+//     glGetShaderiv(id, GL_COMPILE_STATUS, &status);
 
-    return id;
+//     return id;
+// }
+
 }
 
 #endif

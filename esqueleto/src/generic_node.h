@@ -1,10 +1,14 @@
-#ifndef NODE_TYPES_H
-#define NODE_TYPES_H
+#ifndef GENERIC_NODE_H
+#define GENERIC_NODE_H
 #pragma once
 
 #include <memory>
 #include <vector>
-#include <glm/gtc/type_ptr.hpp> // Para glm::value_ptr
+#include <algorithm>
+
+#include "shape.h"
+#include "transform.h"
+#include "shader.h"
 
 namespace scene {
     class SceneGraph;
@@ -12,30 +16,28 @@ namespace scene {
 
 namespace node {
 
-class GenericNode;
-using NodePtr = std::shared_ptr<GenericNode>;
+class Node;
+using NodePtr = std::shared_ptr<Node>;
 
-using ParentPtr = std::weak_ptr<GenericNode>; // ponteiro fraco para evitar ciclos de referência
+using ParentPtr = std::weak_ptr<Node>; // ponteiro fraco para evitar ciclos de referência
 
-class GenericNode : public std::enable_shared_from_this<GenericNode>{ // BACALHAU falta fazer as subclasses de nó
+class Node : public std::enable_shared_from_this<Node>{ // BACALHAU falta fazer as subclasses de nó
 private:
     int id;
     inline static int next_id = 0;
     std::string name;
-    ShapePtr shape;
-    ShaderPtr shader;
     std::vector<NodePtr> children;
     int child_count = 0;
-    transform::TransformPtr transform; // Transformação local deste nó
     ParentPtr parent; // pode ser nulo
     bool applicability = true;
     bool local_applicability = true;
     
     friend class scene::SceneGraph;
 
+protected:
     
-    GenericNode(std::string name, ShapePtr shape, ShaderPtr shader, transform::TransformPtr transform) : 
-    name(name), shape(shape), shader(shader), transform(transform)
+    Node(std::string name) : 
+    name(name)
     {
         id = next_id++;
     }
@@ -48,40 +50,18 @@ private:
         parent = new_parent;
     }
 
-    void setShader(ShaderPtr new_shader) {
-        shader = new_shader;
-    }
-
-    void setTransform(transform::TransformPtr new_transform) {
-        transform = new_transform;
-    }
-
-    void setShape(ShapePtr new_shape) {
-        shape = new_shape;
-    }
-
     void setApplicability(bool new_applicability) {
         applicability = new_applicability;
     }
 
 public:
 
-    static NodePtr Make(std::string name, ShapePtr shape, ShaderPtr shader, transform::TransformPtr transform) {
-        return NodePtr(new GenericNode(name, shape, shader, transform));
-    }
-
-    static NodePtr Make(std::string name, ShapePtr shape, ShaderPtr shader, transform::TransformPtr transform, NodePtr parent) {
-        NodePtr n = NodePtr(new GenericNode(name, shape, shader, transform));
-        n->parent = parent;
-        return n;
-    }
-
     static NodePtr Make(std::string name) {
-        return NodePtr(new GenericNode(name, nullptr, nullptr, transform::Transform::Make()));
+        return NodePtr(new Node(name));
     }
 
     static NodePtr Make(std::string name, NodePtr parent) {
-        NodePtr n = NodePtr(new GenericNode(name, nullptr, nullptr, transform::Transform::Make()));
+        NodePtr n = NodePtr(new Node(name));
         n->parent = parent;
         return n;
     }
@@ -94,14 +74,6 @@ public:
         return name;
     }
 
-    transform::TransformPtr getTransform() const {
-        return transform;
-    }
-
-    ShapePtr getShape() const {
-        return shape;
-    }
-
     NodePtr getParent() const {
         return parent.lock();
     }
@@ -112,10 +84,6 @@ public:
 
     bool getLocalApplicability() const {
         return local_applicability;
-    }
-    
-    ShaderPtr getShader() const {
-        return shader;
     }
 
     int getChildCount() const {
@@ -221,49 +189,29 @@ public:
         }
     }
 
-    void apply() {
-        // Combina a transformação do pai com a transformação local dentro do push
-        if (transform) transform::stack().push(transform->getMatrix());
+    virtual void apply() {}
 
-        if (shader) shaderStack().push(shader);
-        
-        // Desenha a forma associada a este nó, se existir
-        if (shape) {
-            
-            // Envia a matriz de transformação para o shader
-            unsigned int shader_program = shaderStack().top()->GetShaderID();
-            unsigned int transformLoc = glGetUniformLocation(shader_program, "M");
-            glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform::stack().top()));
-            shape->Draw();
-        }
-
-        Error::Check("node::GenericNode::apply");
-    }
-
-    void unapply() {
-        if (transform) transform::stack().pop();
-        if (shader) shaderStack().pop();
-    }
+    virtual void unapply() {}
 
     void draw(bool print = false) {
         if (!applicability) return;
-        if (print) printf("Drawing node %s (id=%d) (parent=%s)\n", name.c_str(), id, parent.lock()? parent.lock()->getName().c_str() : "none");
+        if (print) printf("Drawing node %s (id=%d) (parent=%s)\n", name.c_str(), id, parent.lock()? parent.lock()->getName().c_str() : "NONE");
 
-        Error::Check("scene::GenericNode::draw start");
+        Error::Check("scene::Node::draw start");
 
         if (!local_applicability) apply();
 
-        Error::Check("scene::GenericNode::draw after apply");
+        Error::Check("scene::Node::draw after apply");
 
         // Desenha os filhos
         for (NodePtr child : children) {
             child->draw(print);
         }
-        Error::Check("scene::GenericNode::draw after drawing children");
+        Error::Check("scene::Node::draw after drawing children");
 
         if (!local_applicability) unapply();
 
-        Error::Check("scene::GenericNode::draw end");
+        Error::Check("scene::Node::draw end");
     }
 };
 

@@ -56,7 +56,7 @@ class Transform {
         }
 
         void translate(float x, float y, float z) {
-            matrix = matrix * glm::translate(matrix, glm::vec3(x, y, z));
+            matrix = glm::translate(matrix, glm::vec3(x, y, z));
         }
 
         void setTranslate(float x, float y, float z) {
@@ -72,7 +72,7 @@ class Transform {
             if (glm::length(axis) > 0.0f) {
                 axis = glm::normalize(axis);
             }
-            matrix = matrix * glm::rotate(matrix, angle_radians, axis);
+            matrix = glm::rotate(matrix, angle_radians, axis);
         }
 
         void setRotate(float angle_degrees, float axis_x, float axis_y, float axis_z) {
@@ -81,7 +81,7 @@ class Transform {
         }
 
         void scale(float x, float y, float z) {
-            matrix = matrix * glm::scale(matrix, glm::vec3(x, y, z));
+            matrix = glm::scale(matrix, glm::vec3(x, y, z));
         }
 
         void setScale(float x, float y, float z) {
@@ -94,7 +94,7 @@ class Transform {
         }
 };
 
-TransformStack& stack();
+TransformStackPtr stack();
 
 class TransformStack {
 private:
@@ -105,7 +105,7 @@ private:
     }
 
     // A amizade agora é concedida à função livre 'stack()' do namespace.
-    friend TransformStack& stack();
+    friend TransformStackPtr stack();
 
 public:
     TransformStack(const TransformStack&) = delete;
@@ -130,8 +130,8 @@ public:
 };
 
 // Definição da função de acesso (inline para uso no header)
-inline TransformStack& stack() {
-    static TransformStack instance;
+inline TransformStackPtr stack() {
+    static TransformStackPtr instance = TransformStackPtr(new TransformStack());
     return instance;
 }
 

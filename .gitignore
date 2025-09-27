@@ -6,5 +6,6 @@
 /**/libs/* 
 
 scene_graph/*
+test/*
 
 !.gitkeep

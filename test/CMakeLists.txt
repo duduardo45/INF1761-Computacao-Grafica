@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 # Nome do projeto
-project(Trab0)
+project(Testbed)
 
 # Adiciona o caminho para as bibliotecas de inclusão
 include_directories(
