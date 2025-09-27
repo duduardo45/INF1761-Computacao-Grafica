@@ -72,7 +72,7 @@ class Transform {
             if (glm::length(axis) > 0.0f) {
                 axis = glm::normalize(axis);
             }
-            matrix = matrix * glm::rotate(matrix, angle_radians, axis);
+            matrix = glm::rotate(matrix, angle_radians, axis);
         }
 
         void setRotate(float angle_degrees, float axis_x, float axis_y, float axis_z) {

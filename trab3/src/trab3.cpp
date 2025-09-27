@@ -125,13 +125,13 @@ static void display(GLFWwindow * win)
   Error::Check("display - antes de atualizar geometria dinâmica");
 
   sg->lookAtNode("rotacao_terra");
-  sg->setRotateCurrentNode(contador_rotacao_terra);
-  contador_rotacao_terra = (contador_rotacao_terra + 1.0f);
+  sg->rotateCurrentNode(0.1f, 0,0,1);
+  // contador_rotacao_terra = (contador_rotacao_terra + 1.0f);
   // printf("\ncontador_rotacao_terra: %f\n", contador_rotacao_terra);
 
   sg->lookAtNode("rotacao_lua");
-  sg->setRotateCurrentNode(contador_rotacao_lua);
-  contador_rotacao_lua = (contador_rotacao_lua + 5.0f);
+  sg->rotateCurrentNode(0.5f, 0,0,1);
+  // contador_rotacao_lua = (contador_rotacao_lua + 5.0f);
   // printf("contador_rotacao_lua: %f\n", contador_rotacao_lua);
 
   Error::Check("display - depois de atualizar geometria dinâmica");
