@@ -1,9 +1,7 @@
-
-#pragma once
-
 #pragma once
 #include <glm/glm.hpp>
 #include <memory>
+#include "transform.h"
 
 class PhysicsBody;
 using PhysicsBodyPtr = std::shared_ptr<PhysicsBody>;
@@ -14,12 +12,27 @@ private:
     glm::vec2 positionOld;
     glm::vec2 positionCurrent;
     glm::vec2 acceleration;
+    float radius;
+    transform::TransformPtr nodeTransform;
+
+    PhysicsBody(const glm::vec2 &oldPosition, const glm::vec2 &initialPosition, transform::TransformPtr nodeTransform, float radius)
+        : positionOld(oldPosition), positionCurrent(initialPosition), acceleration(0.0f, 0.0f), radius(radius), nodeTransform(nodeTransform) {}
 
 public:
+    static PhysicsBodyPtr Make(const glm::vec2 &initialPosition, transform::TransformPtr nodeTransform, float radius = 1.0f)
+    {
+        return PhysicsBodyPtr(new PhysicsBody(initialPosition, initialPosition, nodeTransform, radius));
+    }
 
-    float radius = 1.0f;
-    PhysicsBody(const glm::vec2 &initialPosition)
-        : positionOld(initialPosition), positionCurrent(initialPosition), acceleration(0.0f, 0.0f) {}
+    static PhysicsBodyPtr Make(const glm::vec2 &oldPosition, const glm::vec2 &initialPosition, transform::TransformPtr nodeTransform, float radius = 1.0f)
+    {
+        return PhysicsBodyPtr(new PhysicsBody(oldPosition, initialPosition, nodeTransform, radius));
+    }
+
+    void setNodeTransform(transform::TransformPtr t)
+    {
+        nodeTransform = t;
+    }
 
     void calculateNextPosition(float deltaTime)
     {
@@ -27,6 +40,12 @@ public:
         positionOld = positionCurrent;
         positionCurrent += velocity + acceleration * deltaTime * deltaTime;
         acceleration = glm::vec2(0.0f, 0.0f);
+
+        // Atualiza o transform do nó, se existir
+        if (nodeTransform)
+        {
+            nodeTransform->setTranslate(positionCurrent.x, positionCurrent.y, 0.0f);
+        }
     }
 
     void accelerate(const glm::vec2 &accel)
@@ -37,8 +56,25 @@ public:
     {
         return positionCurrent;
     }
-    void setPosition(const glm::vec2 &newPosition)
+    float getRadius() const
     {
-        positionCurrent = newPosition;
+        return radius;
+    }
+    void setRadius(float radius)
+    {
+        this->radius = radius;
+    }
+    void move(const glm::vec2 &newPosition)
+    {
+        positionCurrent += newPosition;
+        // Atualiza o transform do nó, se existir
+        if (nodeTransform)
+        {
+            nodeTransform->setTranslate(positionCurrent.x, positionCurrent.y, 0.0f);
+        }
+    }
+    void moveOld(const glm::vec2 &newPosition)
+    {
+        positionOld += newPosition;
     }
 };
