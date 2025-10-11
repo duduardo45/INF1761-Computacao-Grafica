@@ -75,7 +75,7 @@ public:
 
             sceneGraph->addNode(nodeName, circleShape, shader, transform, effectiveParent);
 
-            auto body = PhysicsBody::Make(pos, radius, transform);
+            auto body = PhysicsBody::Make(pos, transform, radius);
             engine->addBody(body);
 
             createdBodies.push_back(body);
