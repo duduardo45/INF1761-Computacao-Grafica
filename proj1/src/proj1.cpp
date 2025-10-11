@@ -1,6 +1,6 @@
 #include <EnGene.h>
-#include <scene.h>
-#include <scene_visitor.h>
+#include <core/scene.h>
+#include <core/scene_node_builder.h>
 #include <shapes/circle.h>
 #include <other_genes/basic_input_handler.h>
 #include <gl_base/error.h>
@@ -9,62 +9,52 @@
 #define BACKGROUND_COLOR 0.05f, 0.05f, 0.1f
 
 int main() {
-    // Define the user's one-time initialization logic
-    auto on_init = []() {
-        // This is the code that runs once at the start.
-        scene::graph()->initializeBaseShader("../shaders/vertex.glsl", "../shaders/fragment.glsl");
-        scene::graph()->getBaseShader()->configureUniform<glm::mat4>("M", transform::current);
-        // ... set up your initial scene, load models, etc.
-        scene::SceneGraphVisitor v;
+    // The on_init lambda now only focuses on building the scene graph.
+    // Shader initialization is moved outside.
+    auto on_init = [](engene::EnGene& app) {
+        // configures the uniforms from the base shader.
+        app.getBaseShader()->configureUniform<glm::mat4>("M", transform::current);
 
-        v.addNode("Sun");
-        v.addComponentToCurrentNode(
-            component::GeometryComponent::Make(
+        // 1. Build the Sun
+        // We start a chain from the graph's root. The .with<T>() methods
+        // add components to the node being built ("Sun").
+        scene::graph()->addNode("Sun")
+            .with<component::TransformComponent>(
+                transform::Transform::Make()->rotate(30, 0, 0, 1)
+            )
+            .with<component::GeometryComponent>(
                 Circle::Make(
-                    0.0f, 0.0f, // pos centro
-                    0.3f, // raio
-                    (float[]) { // cores
-                        0.8f, 0.5f, 0.0f, // centro
-                        BACKGROUND_COLOR, // borda
+                    0.0f, 0.0f,         // center pos
+                    0.3f,               // radius
+                    (float[]) {         // colors
+                        0.8f, 0.5f, 0.0f, // center
+                        BACKGROUND_COLOR, // edge
                     },
-                    32,
-                    true
+                    32,                 // segments
+                    true                // has gradient
                 )
-            )
-        );
-        transform::TransformPtr rotacao_sol = transform::Transform::Make();
-        rotacao_sol->rotate(30, 0,0,1);
-        v.addComponentToCurrentNode(
-            component::TransformComponent::Make(
-                rotacao_sol
-            )
-        );
+            );
 
-        v.goToRoot();
-
-        v.addNode("sun earth distance");
-        transform::TransformPtr dist_sol_terra = transform::Transform::Make();
-        dist_sol_terra->translate(0.7f, 0.0f, 0.0f);
-        v.addComponentToCurrentNode(
-            component::TransformComponent::Make(
-                dist_sol_terra
+        // 2. Build the Earth System
+        // We start a *new* chain from the root for the orbital pivot.
+        // Chaining .addNode() creates a child-parent relationship.
+        scene::graph()->addNode("sun earth distance")
+            .with<component::TransformComponent>(
+                transform::Transform::Make()->translate(0.7f, 0.0f, 0.0f)
             )
-        );
-
-        v.addNode("Earth");
-        v.addComponentToCurrentNode(
-            component::GeometryComponent::Make(
-                Circle::Make(
-                    0.0f, 0.0f, // pos centro
-                    0.1f, // raio
-                    (float[]) { // cores
-                        0.0f, 0.1f, 0.5f // centro
-                    },
-                    32,
-                    false
-                )
-            )
-        );
+            // "Earth" is now a child of "sun earth distance"
+            .addNode("Earth") 
+                .with<component::GeometryComponent>(
+                    Circle::Make(
+                        0.0f, 0.0f,         // center pos
+                        0.1f,               // radius
+                        (float[]) {         // colors
+                            0.0f, 0.1f, 0.5f // center
+                        },
+                        32,                 // segments
+                        false               // no gradient
+                    )
+                );
     };
 
     // Define the user's per-frame update and drawing logic
@@ -80,24 +70,43 @@ int main() {
     };
 
     try {
-        // 1. Create your input handler instance.
+        // 1. Set up the EnGeneConfig struct.
+        engene::EnGeneConfig config;
+        /* Exclusive to C++20 and above:
+        config = {
+            .base_vertex_shader_path   = "../shaders/vertex.glsl",
+            .base_fragment_shader_path = "../shaders/fragment.glsl",
+            .title                     = "My Modern EnGene App",
+            .width                     = 800,
+            .height                    = 800,
+            .clearColor                = { BACKGROUND_COLOR, 1.0f }
+            // .maxFramerate is not listed, so it will keep its default value (60)
+        };
+        */
+        // config.width = 800;
+        // config.height = 800;
+        // config.title = "My Awesome EnGene App";
+        // config.maxFramerate = 60;
+        config.clearColor[0] = 0.05f;
+        config.clearColor[1] = 0.05f;
+        config.clearColor[2] = 0.1f;
+        config.clearColor[3] = 1.0f;
+        config.base_vertex_shader_path = "../shaders/vertex.glsl";      // This is a required field.
+        config.base_fragment_shader_path = "../shaders/fragment.glsl";  // This is a required field.
+
+        // 2. Create your input handler instance.
         auto* handler = new input::BasicInputHandler();
 
-        // 2. Create the EnGene instance, passing in all your configurations.
+        // 3. Create the EnGene instance, passing in the configurations.
         engene::EnGene app(
-            800, 800,                           // Window dimensions
-            "My Awesome EnGene App",            // Window title
-            handler,                            // The input handler
-            on_init,                            // Your init function
-            on_update,                          // Your update function
-            60,                                 // Max framerate
-            (float[]) {BACKGROUND_COLOR, 1.0f}
+            config,      // Pass the config struct
+            handler,     // The input handler
+            on_init,     // Your init function
+            on_update    // Your update function
         );
-
         
-        // 3. Run the application. This call blocks until the window is closed.
+        // 4. Run the application.
         app.run();
-        
 
     } catch (const std::runtime_error& e) {
         std::cerr << "An error occurred: " << e.what() << std::endl;
