@@ -1,123 +1,140 @@
 #include <EnGene.h>
 #include <core/scene.h>
 #include <core/scene_node_builder.h>
-#include <shapes/circle.h>
+// <<< No longer need the plain circle, just the textured one
+#include <other_genes/textured_shapes/textured_circle.h>
 #include <other_genes/basic_input_handler.h>
 #include <gl_base/error.h>
+#include <gl_base/shader.h>
 #include <components/all.h>
+
+// <<< Include your physics engine files
+#include "physics/engine.h"
+#include "physics/physicsBody.h"
+
+#include <random> // For generating random positions
 
 #define BACKGROUND_COLOR 0.05f, 0.05f, 0.1f
 
+// <<< Declare the physics engine pointer so it can be accessed by on_init and on_update
+EnginePtr physicsEngine;
+int circle_count = 0;
+
+// Function to create a circle with a physics body
+void createPhysicsCircle(const glm::vec2& initialPosition, float radius, shader::ShaderPtr shader)
+{
+    // 1. Create the transform that will be shared between the scene node and the physics body.
+    auto circle_transform = transform::Transform::Make();
+    
+    // 2. Create the visual representation (the scene node).
+    scene::graph()->addNode("Circle" + std::to_string(circle_count))
+        .with<component::GeometryComponent>(
+            TexturedCircle::Make(
+                0.0f, 0.0f,  // Center pos (local to the node)
+                radius,      // Radius
+                32,          // Segments
+                0.5f, 0.5f,  // Texture scale/offset if needed
+                0.45f
+            )
+        )
+        .with<component::ShaderComponent>(shader)
+        .with<component::TextureComponent>(
+            texture::Texture::Make("../assets/images/earth_from_space.jpg"), // Using earth texture for all
+            "tex",
+            0
+        )
+        // This component holds the transform that the physics engine will update.
+        .with<component::TransformComponent>(circle_transform);
+
+    circle_count++;
+
+    // 3. Create the physics body.
+    // Pass the initial position, the shared transform, and the radius.
+    auto physics_body = PhysicsBody::Make(initialPosition, circle_transform, radius);
+
+    // 4. Add the new body to the engine.
+    physicsEngine->addBody(physics_body);
+}
+
+
 int main() {
-    // The on_init lambda now only focuses on building the scene graph.
-    // Shader initialization is moved outside.
-    transform::TransformPtr sun_rotation;
-    transform::TransformPtr earth_orbit;
+    // <<< We no longer need pointers to the old transforms
+    // transform::TransformPtr sun_rotation;
+    // transform::TransformPtr earth_orbit;
+    // transform::TransformPtr earth_rotation;
+
     auto on_init = [&](engene::EnGene& app) {
         // configures the uniforms from the base shader.
         app.getBaseShader()->configureUniform<glm::mat4>("M", transform::current);
 
-        // 1. Build the Sun
-        // We start a chain from the graph's root. The .with<T>() methods
-        // add components to the node being built ("Sun").
-        sun_rotation = transform::Transform::Make()->rotate(30, 0, 0, 1);
-        scene::graph()->addNode("Sun")
-            .with<component::TransformComponent>(
-                sun_rotation
-            )
-            .with<component::GeometryComponent>(
-                Circle::Make(
-                    0.0f, 0.0f,         // center pos
-                    0.3f,               // radius
-                    (float[]) {         // colors
-                        0.8f, 0.5f, 0.0f, // center
-                        BACKGROUND_COLOR, // edge
-                    },
-                    32,                 // segments
-                    true                // has gradient
-                )
-            );
+        // creates the texture shader and configures its uniforms
+        shader::ShaderPtr textured_shader = shader::Shader::Make(
+            "../shaders/textured_vertex.glsl",
+            "../shaders/textured_fragment.glsl"
+        )
+        ->configureUniform<glm::mat4>("M", transform::current)
+        ->configureUniform<int>("tex", texture::getUnitProvider("tex"));
 
-        // 2. Build the Earth System
-        // We start a *new* chain from the root for the orbital pivot.
-        earth_orbit = transform::Transform::Make();
-        // Chaining .addNode() creates a child-parent relationship.
-        scene::graph()->addNode("Earth") 
-            .with<component::GeometryComponent>(
-                Circle::Make(
-                    0.0f, 0.0f,         // center pos
-                    0.1f,               // radius
-                    (float[]) {         // colors
-                        0.0f, 0.1f, 0.5f // center
-                    },
-                    32,                 // segments
-                    false               // no gradient
-                )
-            )
-            .with<component::TransformComponent>(
-                transform::Transform::Make()->translate(0.7f, 0.0f, 0.0f)
-            )
-            .with<component::TransformComponent>(
-                earth_orbit, 99
-            );
+        // <<< 1. Initialize the Physics Engine
+        // We define the simulation area to match the typical OpenGL normalized device coordinates.
+        physicsEngine = Engine::make(-1.0f, 1.0f, -1.0f, 1.0f, glm::vec2(0.0f, 1.0f));
+
+        // <<< 2. Create multiple circles with physics bodies
+        // Setup for random positions
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<> distr(-0.8f, 0.8f);
+
+        int numberOfCircles = 10;
+        for(int i = 0; i < numberOfCircles; ++i)
+        {
+            glm::vec2 pos(distr(gen), distr(gen)); // Random initial position
+            createPhysicsCircle(pos, 0.1f, textured_shader);
+        }
     };
 
-    // Define the user's per-frame update and drawing logic
-    auto on_update = [&]() {
-        // This code runs every frame.
+    auto on_update = [&](double time_elapsed) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
-        // ... update object positions, handle animations ...
+        // <<< 3. Update the physics engine every frame
+        // This will calculate new positions based on gravity and collisions.
+        // Because we linked the transforms, the visual objects will move automatically.
+        if(physicsEngine)
+        {
+            physicsEngine->update(static_cast<float>(time_elapsed));
+        }
 
-        if (sun_rotation) {
-            sun_rotation->rotate(-0.5f, 0, 0, 1); // Rotate the sun slowly
-        }
-        if (earth_orbit) {
-            earth_orbit->rotate(1.2f, 0, 0, 1); // Orbit the earth faster
-        }
+        // <<< The old manual rotation code is no longer needed.
+        // if (sun_rotation) { ... }
+        // if (earth_orbit) { ... }
         
+        // Render the scene graph with the updated positions.
         scene::graph()->draw();
         
         Error::Check("update");
     };
 
     try {
-        // 1. Set up the EnGeneConfig struct.
         engene::EnGeneConfig config;
-        /* Exclusive to C++20 and above:
-        config = {
-            .base_vertex_shader_path   = "../shaders/vertex.glsl",
-            .base_fragment_shader_path = "../shaders/fragment.glsl",
-            .title                     = "My Modern EnGene App",
-            .width                     = 800,
-            .height                    = 800,
-            .clearColor                = { BACKGROUND_COLOR, 1.0f }
-            // .maxFramerate is not listed, so it will keep its default value (60)
-        };
-        */
-        // config.width = 800;
-        // config.height = 800;
-        // config.title = "My Awesome EnGene App";
-        // config.maxFramerate = 60;
+        config.width = 800;
+        config.height = 800;
+        config.title = "Physics Engine Demo";
         config.clearColor[0] = 0.05f;
         config.clearColor[1] = 0.05f;
         config.clearColor[2] = 0.1f;
         config.clearColor[3] = 1.0f;
-        config.base_vertex_shader_path = "../shaders/vertex.glsl";      // This is a required field.
-        config.base_fragment_shader_path = "../shaders/fragment.glsl";  // This is a required field.
+        config.base_vertex_shader_path = "../shaders/vertex.glsl";
+        config.base_fragment_shader_path = "../shaders/fragment.glsl";
 
-        // 2. Create your input handler instance.
         auto* handler = new input::BasicInputHandler();
 
-        // 3. Create the EnGene instance, passing in the configurations.
         engene::EnGene app(
-            config,      // Pass the config struct
-            handler,     // The input handler
-            on_init,     // Your init function
-            on_update    // Your update function
+            config,
+            handler,
+            on_init,
+            on_update
         );
         
-        // 4. Run the application.
         app.run();
 
     } catch (const std::runtime_error& e) {

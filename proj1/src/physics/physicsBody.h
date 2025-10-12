@@ -1,7 +1,7 @@
 #pragma once
 #include <glm/glm.hpp>
 #include <memory>
-#include "transform.h"
+#include <gl_base/transform.h>
 
 class PhysicsBody;
 using PhysicsBodyPtr = std::shared_ptr<PhysicsBody>;
