@@ -58,17 +58,21 @@ void createPhysicsCircle(const glm::vec2& initialPosition, float radius, shader:
 
 
 int main() {
-    // <<< We no longer need pointers to the old transforms
-    // transform::TransformPtr sun_rotation;
-    // transform::TransformPtr earth_orbit;
-    // transform::TransformPtr earth_rotation;
+
+    // Setup for random positions
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<> distr(-0.8f, 0.8f);
+    std::uniform_real_distribution<> radii(0.0f, 0.3f);
+
+    shader::ShaderPtr textured_shader;
 
     auto on_init = [&](engene::EnGene& app) {
         // configures the uniforms from the base shader.
         app.getBaseShader()->configureUniform<glm::mat4>("M", transform::current);
 
         // creates the texture shader and configures its uniforms
-        shader::ShaderPtr textured_shader = shader::Shader::Make(
+        textured_shader = shader::Shader::Make(
             "../shaders/textured_vertex.glsl",
             "../shaders/textured_fragment.glsl"
         )
@@ -77,19 +81,15 @@ int main() {
 
         // <<< 1. Initialize the Physics Engine
         // We define the simulation area to match the typical OpenGL normalized device coordinates.
-        physicsEngine = Engine::make(-1.0f, 1.0f, -1.0f, 1.0f, glm::vec2(0.0f, 1.0f));
+        physicsEngine = Engine::make(-1.0f, 1.0f, -1.0f, 1.0f, glm::vec2(0.0f, -1.0f));
 
         // <<< 2. Create multiple circles with physics bodies
-        // Setup for random positions
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::uniform_real_distribution<> distr(-0.8f, 0.8f);
 
         int numberOfCircles = 10;
         for(int i = 0; i < numberOfCircles; ++i)
         {
             glm::vec2 pos(distr(gen), distr(gen)); // Random initial position
-            createPhysicsCircle(pos, 0.1f, textured_shader);
+            createPhysicsCircle(pos, radii(gen), textured_shader);
         }
     };
 
@@ -127,6 +127,24 @@ int main() {
         config.base_fragment_shader_path = "../shaders/fragment.glsl";
 
         auto* handler = new input::BasicInputHandler();
+        handler->registerCallback<input::InputType::MOUSE_BUTTON>([&](MOUSE_BUTTON_HANDLER_ARGS) {
+            if (action == GLFW_PRESS) {
+                double xpos, ypos;
+                glfwGetCursorPos(window, &xpos, &ypos);
+
+                int fb_w, fb_h;
+                glfwGetFramebufferSize(window, &fb_w, &fb_h);
+                
+                // Convert screen coordinates (pixels) to Normalized Device Coordinates (NDC) [-1, 1]
+                float x_ndc = ((float)xpos / (float)fb_w) * 2.0f - 1.0f;
+                float y_ndc = (1.0f - ((float)ypos / (float)fb_h)) * 2.0f - 1.0f;
+
+                glm::vec2 pos(x_ndc,y_ndc);
+                createPhysicsCircle(pos, radii(gen), textured_shader);
+            }
+        });
+
+        handler->registerCallback<input::InputType::CURSOR_POSITION>([](CURSOR_POS_HANDLER_ARGS){});
 
         engene::EnGene app(
             config,
