@@ -99,21 +99,26 @@ int main() {
         }
     };
 
-    auto on_update = [&](double update_interval) {
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        
-        // <<< 3. Update the physics engine every frame
+    // This function handles the fixed-timestep simulation logic.
+    auto on_fixed_update = [&](double fixed_timestep) {
+        // Update the physics engine.
         // This will calculate new positions based on gravity and collisions.
         // Because we linked the transforms, the visual objects will move automatically.
         if(physicsEngine)
         {
-            physicsEngine->update(static_cast<float>(update_interval));
+            physicsEngine->update(static_cast<float>(fixed_timestep));
         }
+    };
+
+    // This function handles all rendering.
+    auto on_render = [&](double alpha) {
+        // The 'alpha' parameter can be used for smooth interpolation between physics states
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
         // Render the scene graph with the updated positions.
         scene::graph()->draw();
         
-        Error::Check("update");
+        Error::Check("render");
     };
 
     try {
@@ -173,7 +178,8 @@ int main() {
 
         engene::EnGene app(
             on_init,
-            on_update,
+            on_fixed_update,
+            on_render,
             config,
             handler
         );
