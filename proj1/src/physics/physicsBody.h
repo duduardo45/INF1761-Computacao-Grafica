@@ -67,14 +67,17 @@ public:
     void move(const glm::vec2 &newPosition)
     {
         positionCurrent += newPosition;
-        // Atualiza o transform do nó, se existir
+        positionOld += newPosition;
+    }
+    void moveRigid(const glm::vec2 &newPosition)
+    {
+        positionCurrent += newPosition;
+        // positionOld += newPosition;
+    }
+    void update() {
         if (nodeTransform)
         {
             nodeTransform->setTranslate(positionCurrent.x, positionCurrent.y, 0.0f);
         }
-    }
-    void moveOld(const glm::vec2 &newPosition)
-    {
-        positionOld += newPosition;
     }
 };

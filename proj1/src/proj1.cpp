@@ -19,6 +19,7 @@
 // <<< Declare the physics engine pointer so it can be accessed by on_init and on_update
 EnginePtr physicsEngine;
 int circle_count = 0;
+TexturedCirclePtr earth;
 
 // Function to create a circle with a physics body
 void createPhysicsCircle(const glm::vec2& initialPosition, float radius, shader::ShaderPtr shader)
@@ -28,15 +29,7 @@ void createPhysicsCircle(const glm::vec2& initialPosition, float radius, shader:
     
     // 2. Create the visual representation (the scene node).
     scene::graph()->addNode("Circle" + std::to_string(circle_count))
-        .with<component::GeometryComponent>(
-            TexturedCircle::Make(
-                0.0f, 0.0f,  // Center pos (local to the node)
-                radius,      // Radius
-                32,          // Segments
-                0.5f, 0.5f,  // Texture scale/offset if needed
-                0.45f
-            )
-        )
+        .with<component::GeometryComponent>(earth)
         .with<component::ShaderComponent>(shader)
         .with<component::TextureComponent>(
             texture::Texture::Make("../assets/images/earth_from_space.jpg"), // Using earth texture for all
@@ -44,7 +37,12 @@ void createPhysicsCircle(const glm::vec2& initialPosition, float radius, shader:
             0
         )
         // This component holds the transform that the physics engine will update.
-        .with<component::TransformComponent>(circle_transform);
+        .with<component::TransformComponent>(circle_transform)
+        .with<component::TransformComponent>(
+            transform::Transform::Make()
+            ->scale(radius,radius,radius),
+            101
+        );
 
     circle_count++;
 
@@ -63,13 +61,13 @@ int main() {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<> distr(-0.8f, 0.8f);
-    std::uniform_real_distribution<> radii(0.0f, 0.3f);
+    std::uniform_real_distribution<> radii(0.03f, 0.3f);
 
     shader::ShaderPtr textured_shader;
 
     auto on_init = [&](engene::EnGene& app) {
         // configures the uniforms from the base shader.
-        app.getBaseShader()->configureUniform<glm::mat4>("M", transform::current);
+        // app.getBaseShader()->configureUniform<glm::mat4>("M", transform::current);
 
         // creates the texture shader and configures its uniforms
         textured_shader = shader::Shader::Make(
@@ -81,9 +79,17 @@ int main() {
 
         // <<< 1. Initialize the Physics Engine
         // We define the simulation area to match the typical OpenGL normalized device coordinates.
-        physicsEngine = Engine::make(-1.0f, 1.0f, -1.0f, 1.0f, glm::vec2(0.0f, -1.0f));
+        physicsEngine = Engine::make(-1.0f, 1.0f, -1.0f, 1000.0f, glm::vec2(0.0f, -2.0f));
 
         // <<< 2. Create multiple circles with physics bodies
+
+        earth = TexturedCircle::Make(
+                0.0f, 0.0f,  // Center pos (local to the node)
+                1.0f,        // Radius
+                32,          // Segments
+                0.5f, 0.5f,  // Texture scale/offset if needed
+                0.45f
+            );
 
         int numberOfCircles = 10;
         for(int i = 0; i < numberOfCircles; ++i)
@@ -93,7 +99,7 @@ int main() {
         }
     };
 
-    auto on_update = [&](double time_elapsed) {
+    auto on_update = [&](double update_interval) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
         // <<< 3. Update the physics engine every frame
@@ -101,12 +107,8 @@ int main() {
         // Because we linked the transforms, the visual objects will move automatically.
         if(physicsEngine)
         {
-            physicsEngine->update(static_cast<float>(time_elapsed));
+            physicsEngine->update(static_cast<float>(update_interval));
         }
-
-        // <<< The old manual rotation code is no longer needed.
-        // if (sun_rotation) { ... }
-        // if (earth_orbit) { ... }
         
         // Render the scene graph with the updated positions.
         scene::graph()->draw();
@@ -123,10 +125,10 @@ int main() {
         config.clearColor[1] = 0.05f;
         config.clearColor[2] = 0.1f;
         config.clearColor[3] = 1.0f;
-        config.base_vertex_shader_path = "../shaders/vertex.glsl";
-        config.base_fragment_shader_path = "../shaders/fragment.glsl";
+        // config.base_vertex_shader_source = "../shaders/vertex.glsl";
+        // config.base_fragment_shader_source = "../shaders/fragment.glsl";
 
-        auto* handler = new input::BasicInputHandler();
+        auto* handler = new input::InputHandler();
         handler->registerCallback<input::InputType::MOUSE_BUTTON>([&](MOUSE_BUTTON_HANDLER_ARGS) {
             if (action == GLFW_PRESS) {
                 double xpos, ypos;
@@ -144,13 +146,36 @@ int main() {
             }
         });
 
+        bool m_wireframe_mode = false;
+
+        handler->registerCallback<input::InputType::KEY>([&](KEY_HANDLER_ARGS){
+                
+            if (key == GLFW_KEY_Q && action == GLFW_PRESS) {
+                glfwSetWindowShouldClose(window, GLFW_TRUE);
+            }
+            // Toggle wireframe mode
+            else if (key == GLFW_KEY_T && action == GLFW_PRESS) {
+                m_wireframe_mode = !m_wireframe_mode;
+                if (m_wireframe_mode) {
+                    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+                } else {
+                    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+                }
+                std::cout << "Wireframe mode " << (m_wireframe_mode ? "ON" : "OFF") << std::endl;
+            }
+            else if (key == GLFW_KEY_C && action == GLFW_PRESS) {
+                scene::graph()->clearGraph();
+                physicsEngine->clearBodies();
+            }
+        });
+
         handler->registerCallback<input::InputType::CURSOR_POSITION>([](CURSOR_POS_HANDLER_ARGS){});
 
         engene::EnGene app(
-            config,
-            handler,
             on_init,
-            on_update
+            on_update,
+            config,
+            handler
         );
         
         app.run();
