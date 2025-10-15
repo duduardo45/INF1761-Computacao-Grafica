@@ -1,14 +1,14 @@
 #include <EnGene.h>
 #include <core/scene.h>
 #include <core/scene_node_builder.h>
-// <<< No longer need the plain circle, just the textured one
 #include <other_genes/textured_shapes/textured_circle.h>
+#include <other_genes/textured_shapes/quad.h>
 #include <other_genes/basic_input_handler.h>
 #include <gl_base/error.h>
 #include <gl_base/shader.h>
 #include <components/all.h>
 
-// <<< Include your physics engine files
+// <<< Include physics engine files
 #include "physics/engine.h"
 #include "physics/physicsBody.h"
 
@@ -22,13 +22,14 @@ int circle_count = 0;
 TexturedCirclePtr earth;
 
 // Function to create a circle with a physics body
-void createPhysicsCircle(const glm::vec2& initialPosition, float radius, shader::ShaderPtr shader)
+void createPhysicsCircle(const glm::vec2& initialPosition, float radius, shader::ShaderPtr shader, std::string container)
 {
     // 1. Create the transform that will be shared between the scene node and the physics body.
     auto circle_transform = transform::Transform::Make();
     
     // 2. Create the visual representation (the scene node).
-    scene::graph()->addNode("Circle" + std::to_string(circle_count))
+    scene::graph()->buildAt(container)
+    .addNode("Circle" + std::to_string(circle_count))
         .with<component::GeometryComponent>(earth)
         .with<component::ShaderComponent>(shader)
         .with<component::TextureComponent>(
@@ -40,6 +41,7 @@ void createPhysicsCircle(const glm::vec2& initialPosition, float radius, shader:
         .with<component::TransformComponent>(circle_transform)
         .with<component::TransformComponent>(
             transform::Transform::Make()
+            ->translate(0,0,0.5)
             ->scale(radius,radius,radius),
             101
         );
@@ -60,8 +62,10 @@ int main() {
     // Setup for random positions
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_real_distribution<> distr(-0.8f, 0.8f);
+    std::uniform_real_distribution<> distr(-0.7f, 0.7f);
     std::uniform_real_distribution<> radii(0.03f, 0.3f);
+    int initialNumberOfCircles = 30;
+        
 
     shader::ShaderPtr textured_shader;
 
@@ -81,8 +85,19 @@ int main() {
         // We define the simulation area to match the typical OpenGL normalized device coordinates.
         physicsEngine = Engine::make(-1.0f, 1.0f, -1.0f, 1000.0f, glm::vec2(0.0f, -2.0f));
 
-        // <<< 2. Create multiple circles with physics bodies
+        // <<< 2. Create the container for the circles
+        scene::graph()->addNode("container")
+            .with<component::GeometryComponent>(
+                Quad::Make(-1,-1,1,1)
+            )
+            .with<component::ShaderComponent>(textured_shader)
+            .with<component::TextureComponent>(
+                texture::Texture::Make("../assets/images/starred-paint.jpg"),
+                "tex",
+                1
+            );
 
+        // <<< 3. Initialize the reused Circle Geometry
         earth = TexturedCircle::Make(
                 0.0f, 0.0f,  // Center pos (local to the node)
                 1.0f,        // Radius
@@ -90,24 +105,31 @@ int main() {
                 0.5f, 0.5f,  // Texture scale/offset if needed
                 0.45f
             );
-
-        int numberOfCircles = 10;
-        for(int i = 0; i < numberOfCircles; ++i)
-        {
-            glm::vec2 pos(distr(gen), distr(gen)); // Random initial position
-            createPhysicsCircle(pos, radii(gen), textured_shader);
-        }
     };
+
+    double time_passed = 0;
 
     // This function handles the fixed-timestep simulation logic.
     auto on_fixed_update = [&](double fixed_timestep) {
         // Update the physics engine.
         // This will calculate new positions based on gravity and collisions.
         // Because we linked the transforms, the visual objects will move automatically.
+        
+        if (circle_count < initialNumberOfCircles)
+        {
+            time_passed += fixed_timestep;
+            if (time_passed > 1) {
+                glm::vec2 pos(distr(gen), 0.8f); // Random initial position
+                createPhysicsCircle(pos, radii(gen), textured_shader, "container");
+                time_passed = 0;
+            }
+        }
+
         if(physicsEngine)
         {
             physicsEngine->update(static_cast<float>(fixed_timestep));
         }
+
     };
 
     // This function handles all rendering.
@@ -147,7 +169,7 @@ int main() {
                 float y_ndc = (1.0f - ((float)ypos / (float)fb_h)) * 2.0f - 1.0f;
 
                 glm::vec2 pos(x_ndc,y_ndc);
-                createPhysicsCircle(pos, radii(gen), textured_shader);
+                createPhysicsCircle(pos, radii(gen), textured_shader, "container");
             }
         });
 
@@ -173,8 +195,6 @@ int main() {
                 physicsEngine->clearBodies();
             }
         });
-
-        handler->registerCallback<input::InputType::CURSOR_POSITION>([](CURSOR_POS_HANDLER_ARGS){});
 
         engene::EnGene app(
             on_init,
