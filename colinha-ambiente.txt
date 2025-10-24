@@ -3,9 +3,17 @@ na pasta build/ de cada projeto:
 
 cmake -G "MinGW Makefiles" ..
 
+ou:
+
+cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Debug
+
 pra gerar o executável:
 
 mingw32-make
+
+ou:
+
+cmake --build build
 
 no settings.json:
 

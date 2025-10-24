@@ -2,14 +2,14 @@
 cmake_minimum_required(VERSION 3.14)
 
 # Nome do projeto
-project(Proj1)
+project(Trab21)
 
 include(FetchContent)
 
 FetchContent_Declare(
   CoreGene # Give it a name
   GIT_REPOSITORY https://github.com/The-EnGene-Project/CoreGene.git
-  GIT_TAG        trab1-base-archive # Or a specific commit hash or release tag like v1.2.0
+  GIT_TAG        main # Or a specific commit hash or release tag like v1.2.0
 )
 
 FetchContent_Populate(CoreGene)
@@ -17,7 +17,8 @@ FetchContent_Populate(CoreGene)
 # FetchContent_GetProperties(CoreGene)
 
 # Adiciona o executável
-add_executable(${PROJECT_NAME} src/proj1.cpp)
+add_executable(${PROJECT_NAME} src/trab21.cpp)
+target_compile_options(${PROJECT_NAME} PRIVATE -g)
 
 # Adiciona o caminho para as bibliotecas de inclusão
 target_include_directories(${PROJECT_NAME} PRIVATE
@@ -25,18 +26,21 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     "${CMAKE_SOURCE_DIR}/libs/glfw/include"
     "${CMAKE_SOURCE_DIR}/libs/glm/include"
     "${CMAKE_SOURCE_DIR}/libs/stb/include"
+    "${CMAKE_SOURCE_DIR}/libs/backtrace/include"
     "${coregene_SOURCE_DIR}/core_gene/src"
 )
 
 # Adiciona o caminho para as bibliotecas de linkagem
 link_directories(
     "${CMAKE_SOURCE_DIR}/libs/glfw/lib-mingw-w64" # Mude para a sua pasta de libs da GLFW
+    "${CMAKE_SOURCE_DIR}/libs/backtrace/lib"
 )
 
 # Linka as bibliotecas com o executável
 target_link_libraries(${PROJECT_NAME}
     "${CMAKE_SOURCE_DIR}/libs/glfw/lib-mingw-w64/libglfw3.a"
     opengl32.lib
+    "${CMAKE_SOURCE_DIR}/libs/backtrace/lib/libbacktrace.a"
 )
 
 
