@@ -5,7 +5,7 @@
     out vec3 v_fragPos;
     out vec3 v_normal;
 
-    layout (std140, binding = 0) uniform CameraMatrices {
+    layout (std140) uniform CameraMatrices {
         mat4 view;
         mat4 projection;
     };
