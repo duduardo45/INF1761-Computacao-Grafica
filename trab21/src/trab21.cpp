@@ -17,6 +17,7 @@ int main() {
 
     auto on_init = [&](engene::EnGene& app) {
         // configures the uniforms from the base shader.
+        app.getBaseShader()->configureDynamicUniform<glm::mat4>("u_model", transform::current);
 
         scene::graph()->addNode("cube")
             .with<component::GeometryComponent>(
@@ -25,6 +26,7 @@ int main() {
             )
             .with<component::TransformComponent>(
                 transform::Transform::Make()
+                ->rotate(25,0,1,0)
                 ->translate(0,-0.4,-0.4)
                 ->scale(0.5,0.2,0.5)
             )
@@ -46,9 +48,6 @@ int main() {
                 transform::Transform::Make()
                 ->translate(-2,2,-0.5)
             );
-        
-        glDisable(GL_CULL_FACE);
-        glDisable(GL_DEPTH_TEST);
     };
 
     // This function handles the fixed-timestep simulation logic.

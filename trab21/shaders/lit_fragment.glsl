@@ -6,7 +6,7 @@ in vec3 v_fragPos;
 in vec3 v_normal;
 
 // Maximum number of lights - must match C++ light_config.h
-#define MAX_SCENE_LIGHTS 1
+#define MAX_SCENE_LIGHTS 16
 
 // Light type enumeration - must match C++ LightType enum
 #define LIGHT_TYPE_INACTIVE 0
