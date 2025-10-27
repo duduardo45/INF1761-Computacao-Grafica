@@ -8,6 +8,7 @@
 #include <gl_base/shader.h>
 #include <components/all.h>
 #include <components/light_component.h>
+#include <3d/lights/light_manager.h>
 #include <3d/lights/point_light.h>
 
 #define BACKGROUND_COLOR 0.05f, 0.05f, 0.1f
@@ -18,8 +19,14 @@ int main() {
     auto on_init = [&](engene::EnGene& app) {
         // configures the uniforms from the base shader.
         app.getBaseShader()->configureDynamicUniform<glm::mat4>("u_model", transform::current);
+        light::manager().bindToShader(app.getBaseShader());
 
-        scene::graph()->addNode("cube")
+        scene::graph()->addNode("scene rotation")
+        .with<component::TransformComponent>(
+            transform::Transform::Make()
+            ->rotate(60,1,1,-1)
+        )
+        .addNode("cube")
             .with<component::GeometryComponent>(
                 Cube::Make(),
                 "cube"
@@ -38,16 +45,21 @@ int main() {
                 .with<component::TransformComponent>(
                     transform::Transform::Make()
                     ->translate(0,2.0,0)
+                    ->scale(0.4,1.0,0.4)
                 );
         
         light::PointLightParams p;
+        p.position = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 
-        scene::graph()->addNode("light")
+        scene::graph()->buildAt("scene rotation")
+        .addNode("light")
             .with<component::LightComponent>(
                 light::PointLight::Make(p),
                 transform::Transform::Make()
                 ->translate(-2,2,-0.5)
             );
+
+        light::manager().apply();
     };
 
     // This function handles the fixed-timestep simulation logic.

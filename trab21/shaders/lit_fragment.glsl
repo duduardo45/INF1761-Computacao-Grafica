@@ -22,6 +22,9 @@ struct LightData {
     vec4 specular;      // Specular color (RGB + padding)
     vec4 attenuation;   // (constant, linear, quadratic, cutoff_angle)
     int type;           // LightType enum value
+    int padding1;       // 4 bytes (manual padding)
+    int padding2;       // 4 bytes (manual padding)
+    int padding3;       // 4 bytes (manual padding)
 };
 
 // Scene lights uniform block with std140 layout
@@ -46,8 +49,8 @@ Material u_material;
 void main()
 {
     // Definir valores padrão para o material aqui
-    u_material.ambient = vec3(0.3, 0.3, 0.3);
-    u_material.diffuse = vec3(0.5, 0.5, 0.5);
+    u_material.ambient = vec3(0.15, 0.0, 0.25);
+    u_material.diffuse = vec3(0.3, 0.0, 0.5);
     u_material.specular = vec3(1.0, 1.0, 1.0);
     u_material.shininess = 32.0;
     // É mais seguro obter a luz dentro do main()
@@ -55,9 +58,15 @@ void main()
 
     // Normal do fragmento
     vec3 norm = normalize(v_normal);
-
-    // Direção da luz (da luz para o fragmento)
-    vec3 lightDir = normalize(-u_dirLight.direction.xyz); // <-- FIX
+    
+    // ======== CÁLCULO DA DIREÇÃO (O FIX) ========
+    // O vetor de direção é calculado a partir da POSIÇÃO da luz
+    // e da POSIÇÃO do fragmento.
+    // (Vetor do fragmento PARA a luz)
+    vec3 toLightVector = u_dirLight.position.xyz - v_fragPos;
+    
+    // Esta é a direção normalizada que você usará para os cálculos
+    vec3 lightDir = normalize(toLightVector);
 
     // ======== COMPONENTE DIFUSA ========
     float diff = max(dot(norm, lightDir), 0.0);
@@ -72,8 +81,16 @@ void main()
     // ======== COMPONENTE AMBIENTE ========
     vec3 ambient = u_dirLight.ambient.xyz * u_material.ambient; // <-- FIX
 
+    // ======== ATENUAÇÃO (CRÍTICO PARA LUZ DE PONTO) ========
+    // Sem isso, a luz terá a mesma intensidade em toda a cena.
+    // Usamos o toLightVector *antes* de normalizar para obter a distância
+    float dist = length(toLightVector);
+    float attenuation = 1.0 / (u_dirLight.attenuation.x + 
+                                 u_dirLight.attenuation.y * dist + 
+                                 u_dirLight.attenuation.z * dist * dist);
+
     // ======== RESULTADO FINAL ========
-    vec3 result = ambient + diffuse + specular;
+    vec3 result = ambient + (diffuse + specular) * attenuation;
 
     FragColor = vec4(result, 1.0);
 }
