@@ -18,29 +18,31 @@
 int main() {
 
     auto* handler = new input::InputHandler();
+    std::shared_ptr<arcball::ArcBallInputHandler> arcball_handler;
 
     auto on_init = [&](engene::EnGene& app) {
         // configures the uniforms from the base shader.
         app.getBaseShader()->configureDynamicUniform<glm::mat4>("u_model", transform::current);
         light::manager().bindToShader(app.getBaseShader());
 
-        scene::graph()->addNode("scene rotation")
-        .with<component::TransformComponent>(
+        scene::graph()->addNode("cube translate")
+        .with<component::ObservedTransformComponent>(
             transform::Transform::Make()
-            ->rotate(60,1,1,-1)
+            ->translate(0,-0.4,-0.4),
+            "cube transform"
         )
-        .addNode("cube")
-            .with<component::GeometryComponent>(
-                Cube::Make(),
-                "cube"
-            )
-            .with<component::ObservedTransformComponent>(
-                transform::Transform::Make()
-                ->rotate(25,0,1,0)
-                ->translate(0,-0.4,-0.4)
-                ->scale(0.5,0.2,0.5),
-                "cube transform"
-            )
+            .addNode("cube")
+                .with<component::GeometryComponent>(
+                    Cube::Make(),
+                    "cube"
+                )
+                .with<component::TransformComponent>(
+                    transform::Transform::Make()
+                    ->rotate(25,0,1,0)
+                    ->scale(2.0,0.2,2.0)
+                );
+        
+        scene::graph()->buildAt("cube translate")
             .addNode("sphere")
                 .with<component::GeometryComponent>(
                     Sphere::Make(),
@@ -48,14 +50,13 @@ int main() {
                 )
                 .with<component::TransformComponent>(
                     transform::Transform::Make()
-                    ->translate(0,2.0,0)
-                    ->scale(0.4,1.0,0.4)
+                    ->translate(0,0.7,0)
+                    ->scale(0.4,0.4,0.4)
                 );
         
         light::PointLightParams p;
 
-        scene::graph()->buildAt("scene rotation")
-        .addNode("light")
+        scene::graph()->addNode("light")
             .with<component::LightComponent>(
                 light::PointLight::Make(p),
                 transform::Transform::Make()
@@ -85,10 +86,10 @@ int main() {
             800.0f / 800.0f
         );
         scene::graph()->getActiveCamera()->setTarget(
-            scene::graph()->getNodeByName("cube")->payload().get<component::ObservedTransformComponent>("cube transform")
+            scene::graph()->getNodeByName("cube translate")->payload().get<component::ObservedTransformComponent>("cube transform")
         );
 
-        arcball::attachArcballTo(*handler);
+        arcball_handler = arcball::attachArcballTo(*handler);
     };
 
     // This function handles the fixed-timestep simulation logic.
@@ -100,6 +101,8 @@ int main() {
     auto on_render = [&](double alpha) {
         // The 'alpha' parameter can be used for smooth interpolation between physics states
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        arcball_handler->syncWithCameraTarget();
         
         // Render the scene graph with the updated positions.
         scene::graph()->draw();
