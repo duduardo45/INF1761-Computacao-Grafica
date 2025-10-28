@@ -3,18 +3,21 @@
 #include <core/scene_node_builder.h>
 #include <other_genes/3d_shapes/cube.h>
 #include <other_genes/3d_shapes/sphere.h>
-#include <other_genes/basic_input_handler.h>
+#include <other_genes/input_handlers/arcball_input_handler.h>
 #include <gl_base/error.h>
 #include <gl_base/shader.h>
 #include <components/all.h>
 #include <components/light_component.h>
 #include <3d/lights/light_manager.h>
 #include <3d/lights/point_light.h>
+#include <3d/camera/perspective_camera.h>
 
 #define BACKGROUND_COLOR 0.05f, 0.05f, 0.1f
 
 
 int main() {
+
+    auto* handler = new input::InputHandler();
 
     auto on_init = [&](engene::EnGene& app) {
         // configures the uniforms from the base shader.
@@ -31,11 +34,12 @@ int main() {
                 Cube::Make(),
                 "cube"
             )
-            .with<component::TransformComponent>(
+            .with<component::ObservedTransformComponent>(
                 transform::Transform::Make()
                 ->rotate(25,0,1,0)
                 ->translate(0,-0.4,-0.4)
-                ->scale(0.5,0.2,0.5)
+                ->scale(0.5,0.2,0.5),
+                "cube transform"
             )
             .addNode("sphere")
                 .with<component::GeometryComponent>(
@@ -49,17 +53,42 @@ int main() {
                 );
         
         light::PointLightParams p;
-        p.position = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 
         scene::graph()->buildAt("scene rotation")
         .addNode("light")
             .with<component::LightComponent>(
                 light::PointLight::Make(p),
                 transform::Transform::Make()
-                ->translate(-2,2,-0.5)
-            );
+                ->translate(0.5,0.5,0.25)
+            )
+            .addNode("light visualizer")
+                .with<component::GeometryComponent>(
+                    Sphere::Make(8, 8),
+                    "light_visualizer"
+                )
+                .with<component::TransformComponent>(
+                    transform::Transform::Make()
+                    ->scale(0.1,0.1,0.1)
+                );
 
         light::manager().apply();
+
+        scene::graph()->addNode("camera node")
+        .with<component::PerspectiveCamera>()
+        .with<component::TransformComponent>(
+            transform::Transform::Make()
+            ->translate(0,0,3)
+        );
+
+        scene::graph()->setActiveCamera("camera node");
+        scene::graph()->getActiveCamera()->setAspectRatio(
+            800.0f / 800.0f
+        );
+        scene::graph()->getActiveCamera()->setTarget(
+            scene::graph()->getNodeByName("cube")->payload().get<component::ObservedTransformComponent>("cube transform")
+        );
+
+        arcball::attachArcballTo(*handler);
     };
 
     // This function handles the fixed-timestep simulation logic.
@@ -89,8 +118,6 @@ int main() {
         config.clearColor[3] = 1.0f;
         config.base_vertex_shader_source = "shaders/lit_vertex.glsl";
         config.base_fragment_shader_source = "shaders/lit_fragment.glsl";
-
-        auto* handler = new input::InputHandler();
 
         bool m_wireframe_mode = false;
 
