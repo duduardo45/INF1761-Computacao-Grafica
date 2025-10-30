@@ -37,49 +37,41 @@ layout (std140) uniform CameraPosition {
     vec4 u_viewPos;
 };
 
-// Estrutura para o material
-struct Material {
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
-    float shininess;
-};
-Material u_material;
+// Material uniforms - set by the material system
+// Note: GLSL struct notation in uniform names (u_material.ambient) is just a naming convention
+// These are actually individual uniforms, not a struct
+uniform vec3 u_material_ambient;
+uniform vec3 u_material_diffuse;
+uniform vec3 u_material_specular;
+uniform float u_material_shininess;
 
 void main()
 {
-    // Definir valores padrão para o material aqui
-    u_material.ambient = vec3(0.15, 0.0, 0.25);
-    u_material.diffuse = vec3(0.3, 0.0, 0.5);
-    u_material.specular = vec3(1.0, 1.0, 1.0);
-    u_material.shininess = 32.0;
-    // É mais seguro obter a luz dentro do main()
+    // Get the first light (point light)
     LightData u_dirLight = sceneLights.lights[0];
 
-    // Normal do fragmento
+    // Fragment normal
     vec3 norm = normalize(v_normal);
     
-    // ======== CÁLCULO DA DIREÇÃO (O FIX) ========
-    // O vetor de direção é calculado a partir da POSIÇÃO da luz
-    // e da POSIÇÃO do fragmento.
-    // (Vetor do fragmento PARA a luz)
+    // ======== DIRECTION CALCULATION ========
+    // Direction vector from fragment position TO the light
     vec3 toLightVector = u_dirLight.position.xyz - v_fragPos;
     
-    // Esta é a direção normalizada que você usará para os cálculos
+    // Normalized direction for lighting calculations
     vec3 lightDir = normalize(toLightVector);
 
-    // ======== COMPONENTE DIFUSA ========
+    // ======== DIFFUSE COMPONENT ========
     float diff = max(dot(norm, lightDir), 0.0);
-    vec3 diffuse = u_dirLight.diffuse.xyz * (diff * u_material.diffuse); // <-- FIX
+    vec3 diffuse = u_dirLight.diffuse.xyz * (diff * u_material_diffuse);
 
-    // ======== COMPONENTE ESPECULAR ========
-    vec3 viewDir = normalize(u_viewPos.xyz - v_fragPos); // <-- FIX
+    // ======== SPECULAR COMPONENT ========
+    vec3 viewDir = normalize(u_viewPos.xyz - v_fragPos);
     vec3 reflectDir = reflect(-lightDir, norm);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), u_material.shininess);
-    vec3 specular = u_dirLight.specular.xyz * (spec * u_material.specular); // <-- FIX
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), u_material_shininess);
+    vec3 specular = u_dirLight.specular.xyz * (spec * u_material_specular);
 
-    // ======== COMPONENTE AMBIENTE ========
-    vec3 ambient = u_dirLight.ambient.xyz * u_material.ambient; // <-- FIX
+    // ======== AMBIENT COMPONENT ========
+    vec3 ambient = u_dirLight.ambient.xyz * u_material_ambient;
 
     // ======== ATENUAÇÃO (CRÍTICO PARA LUZ DE PONTO) ========
     // Sem isso, a luz terá a mesma intensidade em toda a cena.

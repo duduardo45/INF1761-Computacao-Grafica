@@ -6,8 +6,10 @@
 #include <other_genes/input_handlers/arcball_input_handler.h>
 #include <gl_base/error.h>
 #include <gl_base/shader.h>
+#include <gl_base/material.h>
 #include <components/all.h>
 #include <components/light_component.h>
+#include <components/material_component.h>
 #include <3d/lights/light_manager.h>
 #include <3d/lights/point_light.h>
 #include <3d/camera/perspective_camera.h>
@@ -21,46 +23,101 @@ int main() {
     std::shared_ptr<arcball::ArcBallInputHandler> arcball_handler;
 
     auto on_init = [&](engene::EnGene& app) {
-        // configures the uniforms from the base shader.
+        // Configure the uniforms from the base shader
         app.getBaseShader()->configureDynamicUniform<glm::mat4>("u_model", transform::current);
         light::manager().bindToShader(app.getBaseShader());
+        
+        // Set material uniform names to match our shader
+        material::Material::SetDefaultAmbientName("u_material_ambient");
+        material::Material::SetDefaultDiffuseName("u_material_diffuse");
+        material::Material::SetDefaultSpecularName("u_material_specular");
+        material::Material::SetDefaultShininessName("u_material_shininess");
+        
+        // Configure material system with the shader
+        material::stack()->configureShaderDefaults(app.getBaseShader());
 
+        // Base plane (ground) - white/light gray with matte appearance
+        scene::graph()->addNode("base plane")
+            .with<component::GeometryComponent>(
+                Cube::Make(),
+                "base_plane"
+            )
+            .with<component::MaterialComponent>(
+                material::Material::Make(glm::vec3(0.9f, 0.9f, 0.9f))
+                    ->setShininess(16.0f)
+            )
+            .with<component::TransformComponent>(
+                transform::Transform::Make()
+                ->translate(0, -0.6, 0)
+                ->scale(5.0, 0.1, 5.0)
+            );
+
+        // Central cube (yellow/gold)
         scene::graph()->addNode("cube translate")
-        .with<component::ObservedTransformComponent>(
-            transform::Transform::Make()
-            ->translate(0,-0.4,-0.4),
-            "cube transform"
-        )
+            .with<component::ObservedTransformComponent>(
+                transform::Transform::Make()
+                ->translate(0, -0.5, -0.4), // CORRECT
+                "cube transform"
+            )
             .addNode("cube")
                 .with<component::GeometryComponent>(
                     Cube::Make(),
                     "cube"
                 )
-                .with<component::TransformComponent>(
-                    transform::Transform::Make()
-                    ->rotate(25,0,1,0)
-                    ->scale(2.0,0.2,2.0)
-                );
-        
-        scene::graph()->buildAt("cube translate")
-            .addNode("sphere")
-                .with<component::GeometryComponent>(
-                    Sphere::Make(),
-                    "sphere"
+                .with<component::MaterialComponent>(
+                    material::Material::Make(glm::vec3(1.0f, 0.84f, 0.0f))
+                        ->setShininess(32.0f)
                 )
                 .with<component::TransformComponent>(
                     transform::Transform::Make()
-                    ->translate(0,0.7,0)
-                    ->scale(0.4,0.4,0.4)
+                    ->rotate(25, 0, 1, 0)
+                    ->scale(0.8, 0.8, 0.8)
                 );
         
+        // Top sphere (light green) - on top of cube with high shininess
+        scene::graph()->buildAt("cube translate")
+            .addNode("top sphere")
+                .with<component::GeometryComponent>(
+                    Sphere::Make(32, 32),
+                    "top_sphere"
+                )
+                .with<component::MaterialComponent>(
+                    material::Material::Make(glm::vec3(0.5f, 1.0f, 0.5f))
+                        ->setShininess(64.0f)
+                )
+                .with<component::TransformComponent>(
+                    transform::Transform::Make()
+                    ->translate(0, 1.15, 0) // CHANGED: Was 0.975
+                    ->scale(0.35, 0.35, 0.35)
+                );
+        
+        // Side sphere (red/pink) - beside the cube with high shininess
+        scene::graph()->addNode("side sphere")
+            .with<component::GeometryComponent>(
+                Sphere::Make(32, 32),
+                "side_sphere"
+            )
+            .with<component::MaterialComponent>(
+                material::Material::Make(glm::vec3(1.0f, 0.4f, 0.5f))
+                    ->setShininess(64.0f)
+            )
+            .with<component::TransformComponent>(
+                transform::Transform::Make()
+                ->translate(1.2, 0.05, 0) // CHANGED: Was -0.225
+                ->scale(0.55, 0.55, 0.55)
+            );
+        
+        // Point light
         light::PointLightParams p;
+        p.ambient = glm::vec4(0.4f, 0.4f, 0.4f, 1.0f);
+        p.diffuse = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+        p.specular = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 
         scene::graph()->addNode("light")
             .with<component::LightComponent>(
                 light::PointLight::Make(p),
                 transform::Transform::Make()
-                ->translate(0.5,0.5,0.25)
+                ->translate(2.0, 2.0, 1.5)
             )
             .addNode("light visualizer")
                 .with<component::GeometryComponent>(
@@ -69,26 +126,22 @@ int main() {
                 )
                 .with<component::TransformComponent>(
                     transform::Transform::Make()
-                    ->scale(0.1,0.1,0.1)
+                    ->scale(0.1, 0.1, 0.1)
                 );
 
         light::manager().apply();
 
+        // Setup camera
         scene::graph()->addNode("camera node")
-        .with<component::PerspectiveCamera>()
-        .with<component::TransformComponent>(
-            transform::Transform::Make()
-            ->translate(0,0,3)
-        );
+            .with<component::PerspectiveCamera>();
 
         scene::graph()->setActiveCamera("camera node");
-        scene::graph()->getActiveCamera()->setAspectRatio(
-            800.0f / 800.0f
-        );
+        scene::graph()->getActiveCamera()->setAspectRatio(800.0f / 800.0f);
         scene::graph()->getActiveCamera()->setTarget(
             scene::graph()->getNodeByName("cube translate")->payload().get<component::ObservedTransformComponent>("cube transform")
         );
 
+        // Attach arcball controls
         arcball_handler = arcball::attachArcballTo(*handler);
     };
 
