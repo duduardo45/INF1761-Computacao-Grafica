@@ -42,11 +42,13 @@ int main() {
         
         // Create textured shader for textured objects
         textured_shader = shader::Shader::Make(
-            "shaders/textured_lit_vertex.glsl",
-            "shaders/textured_lit_fragment.glsl"
+            "shaders/n_map_vertex.glsl",
+            "shaders/n_map_fragment.glsl"
         )
         ->configureDynamicUniform<glm::mat4>("u_model", transform::current)
-        ->configureDynamicUniform<int>("tex", texture::getUnitProvider("tex"));
+        ->configureDynamicUniform<int>("u_normalMap", texture::getUnitProvider("normal"))
+        ->configureDynamicUniform<int>("u_roughnessMap", texture::getUnitProvider("roughness"))
+        ->configureDynamicUniform<int>("u_diffuseMap", texture::getUnitProvider("diffuse"));
         
 
         // Base plane (ground) - white/light gray with matte appearance
@@ -140,8 +142,18 @@ int main() {
                 )
                 .with<component::TextureComponent>(
                     texture::Texture::Make("assets/images/earth.jpg"),
-                    "tex",
+                    "diffuse",
                     1
+                )
+                .with<component::TextureComponent>(
+                    texture::Texture::Make("assets/images/earth-normal.png"),
+                    "normal",
+                    2
+                )
+                .with<component::TextureComponent>(
+                    texture::Texture::Make("assets/images/noise.png"),
+                    "roughness",
+                    3
                 )
                 .with<component::TransformComponent>(
                     transform::Transform::Make()
@@ -158,20 +170,33 @@ int main() {
                 )
                 .with<component::MaterialComponent>(
                     material::Material::Make(glm::vec3(0.6f, 0.4f, 0.2f))
-                        ->setAmbient(glm::vec3(0.3f, 0.2f, 0.1f))
-                        ->setDiffuse(glm::vec3(0.9f, 0.6f, 0.3f))
-                        ->setSpecular(glm::vec3(0.6f, 0.4f, 0.2f))
+                        ->setAmbient(glm::vec3(0.8f, 0.8f, 0.8f))
+                        ->setDiffuse(glm::vec3(1.0f, 1.0f, 1.0f))
+                        // ->setAmbient(glm::vec3(0.3f, 0.2f, 0.1f))
+                        // ->setDiffuse(glm::vec3(0.9f, 0.6f, 0.3f))
+                        // ->setSpecular(glm::vec3(0.6f, 0.4f, 0.2f))
                         ->setShininess(16.0f)
                 )
                 .with<component::TextureComponent>(
                     texture::Texture::Make("assets/images/barrel.jpg"),
-                    "tex",
+                    "diffuse",
                     1
                 )
-                .with<component::TransformComponent>(
+                .with<component::TextureComponent>(
+                    texture::Texture::Make("assets/images/barrel-normal.jpg"),
+                    "normal",
+                    2
+                )
+                .with<component::TextureComponent>(
+                    texture::Texture::Make("assets/images/noise.png"),
+                    "roughness",
+                    3
+                )
+                .with<component::ObservedTransformComponent>(
                     transform::Transform::Make()
                     ->translate(-1.2, -0.5, 1.0)
-                    ->scale(0.4, 0.7, 0.4)
+                    ->scale(0.4, 0.7, 0.4),
+                    "barrel location"
                 );
         
         // Point light
