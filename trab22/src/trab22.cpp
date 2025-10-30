@@ -16,6 +16,8 @@
 #include <3d/camera/perspective_camera.h>
 
 #define BACKGROUND_COLOR 0.05f, 0.05f, 0.1f
+#define SCREEN_WIDTH 1600
+#define SCREEN_HEIGHT 900
 
 
 int main() {
@@ -67,7 +69,8 @@ int main() {
         scene::graph()->addNode("cube translate")
             .with<component::ObservedTransformComponent>(
                 transform::Transform::Make()
-                ->translate(0, -0.5, -0.4), // CORRECT
+                ->translate(0, -0.5, -0.4)
+                    ->rotate(25, 0, 1, 0),
                 "cube transform"
             )
             .addNode("cube")
@@ -81,11 +84,28 @@ int main() {
                 )
                 .with<component::TransformComponent>(
                     transform::Transform::Make()
-                    ->rotate(25, 0, 1, 0)
-                    ->scale(0.8, 0.8, 0.8)
+                    ->scale(1.5, 1.0, 1.5) // Stretched (was 1.0, 1.0, 1.0)
                 );
         
-        // Top sphere (light green) - on top of cube with high shininess
+        // Pink cylinder on top of cube
+        scene::graph()->buildAt("cube translate")
+            .addNode("pink cylinder")
+                .with<component::GeometryComponent>(
+                    Cylinder::Make(0.2f, 0.4f, 32, 1, true), // Radius 0.5, Height 0.4
+                    "pink_cylinder"
+                )
+                .with<component::MaterialComponent>(
+                    material::Material::Make(glm::vec3(1.0f, 0.5f, 0.7f)) // Pink
+                        ->setSpecular(glm::vec3(1.0f, 1.0f, 1.0f))
+                        ->setShininess(32.0f)
+                )
+                .with<component::TransformComponent>(
+                    transform::Transform::Make()
+                    // Sits on new cube top (y=1.0, from 1.0 scale) + half-height (0.2)
+                    ->translate(0.3, 1.0, -0.3) 
+                );
+
+        // Top sphere (light green) - beside the cylinder with high shininess
         scene::graph()->buildAt("cube translate")
             .addNode("top sphere")
                 .with<component::GeometryComponent>(
@@ -94,11 +114,13 @@ int main() {
                 )
                 .with<component::MaterialComponent>(
                     material::Material::Make(glm::vec3(0.5f, 1.0f, 0.5f))
+                        // ->setSpecular(glm::vec3(1.0f, 1.0f, 1.0f))
                         ->setShininess(64.0f)
                 )
                 .with<component::TransformComponent>(
                     transform::Transform::Make()
-                    ->translate(0, 1.15, 0) // CHANGED: Was 0.975
+                    // Placed diagonally beside pink cylinder (center y=1.2)
+                    ->translate(-0.35, 1.35, 0.35) 
                     ->scale(0.35, 0.35, 0.35)
                 );
         
@@ -112,18 +134,18 @@ int main() {
                 )
                 .with<component::MaterialComponent>(
                     material::Material::Make(glm::vec3(1.0f, 1.0f, 1.0f))
-                        ->setAmbient(glm::vec3(1.0f, 1.0f, 1.0f))
+                        ->setAmbient(glm::vec3(0.8f, 0.8f, 0.8f))
                         ->setDiffuse(glm::vec3(1.0f, 1.0f, 1.0f))
                         ->setShininess(64.0f)
                 )
                 .with<component::TextureComponent>(
-                    texture::Texture::Make("assets/images/starred-paint.jpg"),
+                    texture::Texture::Make("assets/images/earth.jpg"),
                     "tex",
                     1
                 )
                 .with<component::TransformComponent>(
                     transform::Transform::Make()
-                    ->translate(1.2, 0.05, 0)
+                    ->translate(1.2, 0.05, -2.0)
                     ->scale(0.55, 0.55, 0.55)
                 );
         
@@ -136,18 +158,19 @@ int main() {
                 )
                 .with<component::MaterialComponent>(
                     material::Material::Make(glm::vec3(0.6f, 0.4f, 0.2f))
-                        ->setAmbient(glm::vec3(0.6f, 0.4f, 0.2f))
-                        ->setDiffuse(glm::vec3(0.6f, 0.4f, 0.2f))
-                        ->setShininess(128.0f)
+                        ->setAmbient(glm::vec3(0.3f, 0.2f, 0.1f))
+                        ->setDiffuse(glm::vec3(0.9f, 0.6f, 0.3f))
+                        ->setSpecular(glm::vec3(0.6f, 0.4f, 0.2f))
+                        ->setShininess(16.0f)
                 )
                 .with<component::TextureComponent>(
-                    texture::Texture::Make("assets/images/starred-paint.jpg"),
+                    texture::Texture::Make("assets/images/barrel.jpg"),
                     "tex",
                     1
                 )
                 .with<component::TransformComponent>(
                     transform::Transform::Make()
-                    ->translate(-1.2, -0.5, 0)
+                    ->translate(-1.2, -0.5, 1.0)
                     ->scale(0.4, 0.7, 0.4)
                 );
         
@@ -178,7 +201,7 @@ int main() {
             .with<component::PerspectiveCamera>();
 
         scene::graph()->setActiveCamera("camera node");
-        scene::graph()->getActiveCamera()->setAspectRatio(800.0f / 800.0f);
+        // scene::graph()->getActiveCamera()->setAspectRatio(SCREEN_WIDTH / SCREEN_HEIGHT);
         scene::graph()->getActiveCamera()->setTarget(
             scene::graph()->getNodeByName("cube translate")->payload().get<component::ObservedTransformComponent>("cube transform")
         );
@@ -225,8 +248,8 @@ int main() {
 
     try {
         engene::EnGeneConfig config;
-        config.width = 800;
-        config.height = 800;
+        config.width = SCREEN_WIDTH;
+        config.height = SCREEN_HEIGHT;
         config.title = "Lighting Engine Demo";
         config.clearColor[0] = 0.05f;
         config.clearColor[1] = 0.05f;
