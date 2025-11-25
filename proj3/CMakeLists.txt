@@ -17,30 +17,30 @@ FetchContent_Populate(CoreGene)
 # FetchContent_GetProperties(CoreGene)
 
 # Adiciona o executável
-add_executable(${PROJECT_NAME} src/proj3.cpp)
+add_executable(${PROJECT_NAME} src/proj3Shadow.cpp)
 target_compile_options(${PROJECT_NAME} PRIVATE -g)
 
 # Adiciona o caminho para as bibliotecas de inclusão
 target_include_directories(${PROJECT_NAME} PRIVATE
-    "${CMAKE_SOURCE_DIR}/libs/glad/include"
-    "${CMAKE_SOURCE_DIR}/libs/glfw/include"
-    "${CMAKE_SOURCE_DIR}/libs/glm/include"
-    "${CMAKE_SOURCE_DIR}/libs/stb/include"
-    "${CMAKE_SOURCE_DIR}/libs/backtrace/include"
+    "${coregene_SOURCE_DIR}/libs/glad/include"
+    "${coregene_SOURCE_DIR}/libs/glfw/include"
+    "${coregene_SOURCE_DIR}/libs/glm/include"
+    "${coregene_SOURCE_DIR}/libs/stb/include"
+    "${coregene_SOURCE_DIR}/libs/backtrace/include"
     "${coregene_SOURCE_DIR}/core_gene/src"
 )
 
 # Adiciona o caminho para as bibliotecas de linkagem
 link_directories(
-    "${CMAKE_SOURCE_DIR}/libs/glfw/lib-mingw-w64" # Mude para a sua pasta de libs da GLFW
-    "${CMAKE_SOURCE_DIR}/libs/backtrace/lib"
+    "${coregene_SOURCE_DIR}/libs/glfw/lib-mingw-w64" # Mude para a sua pasta de libs da GLFW
+    "${coregene_SOURCE_DIR}/libs/backtrace/lib"
 )
 
 # Linka as bibliotecas com o executável
 target_link_libraries(${PROJECT_NAME}
-    "${CMAKE_SOURCE_DIR}/libs/glfw/lib-mingw-w64/libglfw3.a"
+    "${coregene_SOURCE_DIR}/libs/glfw/lib-mingw-w64/libglfw3.a"
     opengl32.lib
-    "${CMAKE_SOURCE_DIR}/libs/backtrace/lib/libbacktrace.a"
+    "${coregene_SOURCE_DIR}/libs/backtrace/lib/libbacktrace.a"
 )
 
 

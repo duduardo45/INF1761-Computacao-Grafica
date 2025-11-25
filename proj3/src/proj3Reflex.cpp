@@ -59,8 +59,8 @@ std::shared_ptr<component::PerspectiveCamera> table_cam;
 // Reflection-related data removed
 
 // Additional SceneGraphs
-scene::SceneGraphPtr sgA; // will contain cube + sphere
-scene::SceneGraphPtr sgB; // will contain a plane
+#define sgA scene::graph()->buildAt("sgA_root") // will contain cube + sphere
+#define sgB scene::graph()->buildAt("sgB_root") // will contain a plane
 int main() {
     // Custom input handler that forwards mouse/scroll events to multiple ArcBall controllers
     class MultiArcballHandler : public input::InputHandler {
@@ -73,11 +73,6 @@ int main() {
         void handleMouseButton(GLFWwindow* window, int button, int action, int mods) override {
             // Debug: log mouse button events
             double dbg_mx = 0.0, dbg_my = 0.0;
-            glfwGetCursorPos(window, &dbg_mx, &dbg_my);
-            std::cout << "[Input Debug] MouseButton button=" << button
-                      << " action=" << action
-                      << " pos=(" << dbg_mx << "," << dbg_my << ")"
-                      << " controllers=" << m_controllers.size() << std::endl;
 
             for (auto& c : m_controllers) {
                 if (!c) continue;
@@ -94,14 +89,6 @@ int main() {
         }
 
         void handleCursorPos(GLFWwindow* window, double xpos, double ypos) override {
-            // Only print cursor positions when a mouse button is pressed to reduce spam
-            int leftState = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
-            int midState = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_MIDDLE);
-            if (leftState == GLFW_PRESS || midState == GLFW_PRESS) {
-                std::cout << "[Input Debug] CursorPos xpos=" << xpos << " ypos=" << ypos
-                          << " (controllers=" << m_controllers.size() << ")" << std::endl;
-            }
-
             for (auto& c : m_controllers) {
                 if (!c) continue;
                 c->updateOrbit(xpos, ypos);
@@ -110,8 +97,6 @@ int main() {
         }
 
         void handleScroll(GLFWwindow* window, double xoffset, double yoffset) override {
-            std::cout << "[Input Debug] Scroll x=" << xoffset << " y=" << yoffset
-                      << " controllers=" << m_controllers.size() << std::endl;
             for (auto& c : m_controllers) {
                 if (!c) continue;
                 c->zoom(yoffset);
@@ -153,8 +138,9 @@ int main() {
             phong_shader->configureDynamicUniform<glm::mat4>("u_model", transform::current);
             phong_shader->configureDynamicUniform<glm::mat4>("u_projectorViewProj", 
                 []() { return glm::mat4(1.0f); }); // Dummy projector matrix
-            phong_shader->configureDynamicUniform<float>("u_reflectionFactor", 
+            phong_shader->configureStaticUniform<float>("u_reflectionFactor", 
                 []() { return 0.4f; });
+            material::stack()->defineDefault("u_material_alpha", 1.0f); // Default alpha uniform
             material::stack()->configureShaderDefaults(phong_shader);
             phong_shader->Bake();
 
@@ -203,60 +189,62 @@ int main() {
         auto cylinder_geom = Cylinder::Make(1.0f, 1.0f, 32);
 
         // Create two separate scene graphs
-        sgA = scene::SceneGraph::Make();
-        sgB = scene::SceneGraph::Make();
+        scene::graph()->addNode("sgA_root");
+        scene::graph()->addNode("sgB_root");
 
         // Build sgA: cube and sphere
         {
-            auto rootA = sgA->getRoot();
+            sgA.addNode("sgA_cube")
+                .with<component::TransformComponent>(
+                transform::Transform::Make()
+                    ->translate(-1.5f, 0.0f, 0.0f)
+                    ->scale(1.0f,1.0f,1.0f)
+            )
+                .with<component::ShaderComponent>(phong_shader)
+                .with<component::MaterialComponent>(
+                    material::Material::Make(glm::vec3(0.8f,0.2f,0.2f))
+                )
+                .with<component::GeometryComponent>(cube_geom);
 
-            auto cubeNode = sgA->addNode("sgA_cube", rootA);
-            cubeNode->payload().addComponent(component::TransformComponent::Make(
-                transform::Transform::Make()->translate(-1.5f, 0.0f, 0.0f)->scale(1.0f,1.0f,1.0f)
-            ), cubeNode);
-            cubeNode->payload().addComponent(component::ShaderComponent::Make(phong_shader), cubeNode);
-            // Create a material and wrap it in a MaterialComponent
-            auto cube_mat = material::Material::Make(glm::vec3(0.8f,0.2f,0.2f));
-            cubeNode->payload().addComponent(component::MaterialComponent::Make(cube_mat), cubeNode);
-            cubeNode->payload().addComponent(component::GeometryComponent::Make(cube_geom), cubeNode);
-
-            auto sphereNode = sgA->addNode("sgA_sphere", rootA);
-            sphereNode->payload().addComponent(component::TransformComponent::Make(
+            sgA.addNode("sgA_sphere")
+                .with<component::TransformComponent>(
                 transform::Transform::Make()->translate(1.5f, 0.0f, 0.0f)->scale(0.8f,0.8f,0.8f)
-            ), sphereNode);
-            sphereNode->payload().addComponent(component::ShaderComponent::Make(phong_shader), sphereNode);
-            auto sphere_mat = material::Material::Make(glm::vec3(0.2f,0.2f,0.8f));
-            sphereNode->payload().addComponent(component::MaterialComponent::Make(sphere_mat), sphereNode);
-            sphereNode->payload().addComponent(component::GeometryComponent::Make(sphere_geom), sphereNode);
-
+            )
+                .with<component::ShaderComponent>(phong_shader)
+                .with<component::MaterialComponent>(
+                    material::Material::Make(glm::vec3(0.2f,0.2f,0.8f))
+                )
+                .with<component::GeometryComponent>(sphere_geom);
+            
             // Add pink sphere at origin
-            auto pinkSphereNode = sgA->addNode("sgA_pink_sphere", rootA);
-            pinkSphereNode->payload().addComponent(component::TransformComponent::Make(
+            sgA.addNode("sgA_pink_sphere")
+                .with<component::TransformComponent>(
                 transform::Transform::Make()->translate(0.0f, 0.0f, 0.0f)->scale(0.6f,0.6f,0.6f)
-            ), pinkSphereNode);
-            pinkSphereNode->payload().addComponent(component::ShaderComponent::Make(phong_shader), pinkSphereNode);
-            auto pink_mat = material::Material::Make(glm::vec3(1.0f, 0.4f, 0.7f));
-            pinkSphereNode->payload().addComponent(component::MaterialComponent::Make(pink_mat), pinkSphereNode);
-            pinkSphereNode->payload().addComponent(component::GeometryComponent::Make(sphere_geom), pinkSphereNode);
+            )
+                .with<component::ShaderComponent>(phong_shader)
+                .with<component::MaterialComponent>(
+                    material::Material::Make(glm::vec3(1.0f, 0.4f, 0.7f))
+                )
+                .with<component::GeometryComponent>(sphere_geom);
 
             // Create a target node at origin for camera to look at
-            auto targetNode = sgA->addNode("sgA_camera_target", rootA);
-            auto targetTransform = component::ObservedTransformComponent::Make(
-                transform::Transform::Make()->translate(0.0f, 0.0f, 0.0f)
+            sgA.addNode("sgA_camera_target")
+            .with<component::ObservedTransformComponent>(
+                transform::Transform::Make(),
+                "origin_target"
             );
-            targetNode->payload().addComponent(targetTransform, targetNode);
 
             // Add a perspective camera to sgA and set it active (will become global camera)
             auto camComp = component::PerspectiveCamera::Make(60.0f, 1.0f, 100.0f);
-            auto camNode = sgA->addNode("sgA_cam", rootA);
-            camNode->payload().addComponent(camComp, camNode);
+            auto camNode = sgA.addNode("sgA_cam")
+                .addComponent(camComp);
             // Position the camera back so objects at origin are in view
-            camNode->payload().addComponent(component::TransformComponent::Make(
-                transform::Transform::Make()->translate(0.0f, 1.0f, 6.0f)
-            ), camNode);
+            camComp->getTransform()->translate(0.0f, 1.0f, 6.0f);
+            auto targetTransform = scene::graph()->getNodeByName("sgA_camera_target")
+                ->payload()
+                .get<component::ObservedTransformComponent>("origin_target");
             // Make camera look at the target at origin
             camComp->setTarget(targetTransform);
-            sgA->setActiveCamera(camComp);
             // Also set the engine's global scene graph active camera so ArcBall updates affect the renderer's camera UBO
             scene::graph()->setActiveCamera(camComp);
 
@@ -270,59 +258,46 @@ int main() {
             pparams.linear = 0.09f;
             pparams.quadratic = 0.032f;
             auto point_light = light::PointLight::Make(pparams);
-            auto lightNode = sgA->addNode("sgA_point_light", rootA);
-            lightNode->payload().addComponent(component::LightComponent::Make(point_light, transform::Transform::Make()), lightNode);
+
+            // alternative:
+            // light::PointLight::Make(
+            //             {
+            //                 .position = glm::vec4(2.0f, 3.0f, 2.0f, 1.0f),
+            //                 .ambient = glm::vec4(0.05f, 0.05f, 0.05f, 1.0f),
+            //                 .diffuse = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+            //                 .specular = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+            //                 .constant = 1.0f,
+            //                 .linear = 0.09f,
+            //                 .quadratic = 0.032f
+            //             }
+            //         )
+
+            auto lightNode = sgA.addNode("sgA_point_light")
+                .with<component::LightComponent>(
+                    point_light,
+                    transform::Transform::Make());
             // Update light manager so the GPU UBO receives the new light data
             light::manager().apply();
         }
 
         // Build sgB: a single plane
         {
-            auto rootB = sgB->getRoot();
-            auto planeNode = sgB->addNode("sgB_plane", rootB);
-            planeNode->payload().addComponent(component::TransformComponent::Make(
-                transform::Transform::Make()->translate(0.0f, -2.0f, 0.0f)->scale(4.0f,0.1f,4.0f)
-            ), planeNode);
-            planeNode->payload().addComponent(component::ShaderComponent::Make(phong_shader), planeNode);
-            auto plane_mat = material::Material::Make(glm::vec3(0.4f,0.8f,0.4f));
-            plane_mat->setDiffuse(glm::vec4(0.4f, 0.8f, 0.4f, 0.5f)); // Semi-transparent
-            planeNode->payload().addComponent(component::MaterialComponent::Make(plane_mat), planeNode);
-            
-            // Add alpha uniform for transparency
-            auto plane_alpha = component::VariableComponent::Make(
-                uniform::Uniform<float>::Make("u_material_alpha", [](){ return 0.5f; })
-            );
-            planeNode->payload().addComponent(plane_alpha, planeNode);
-            
-            planeNode->payload().addComponent(component::GeometryComponent::Make(cube_geom), planeNode);
-
-            // Add camera for sgB (optional) but do not activate it globally
-            auto camCompB = component::OrthographicCamera::Make();
-            auto camNodeB = sgB->addNode("sgB_cam", rootB);
-            camNodeB->payload().addComponent(camCompB, camNodeB);
-            // Give sgB's camera a reasonable starting position as well
-            camNodeB->payload().addComponent(component::TransformComponent::Make(
-                transform::Transform::Make()->translate(0.0f, 2.0f, 8.0f)
-            ), camNodeB);
+            sgB.addNode("sgB_plane")
+                .with<component::TransformComponent>(
+                transform::Transform::Make()
+                    ->translate(0.0f, -2.0f, 0.0f)
+                    ->scale(4.0f,0.1f,4.0f)
+                )
+                .with<component::ShaderComponent>(phong_shader)
+                .with<component::MaterialComponent>(
+                    material::Material::Make(glm::vec3(0.4f,0.8f,0.4f))
+                        ->setDiffuse(glm::vec4(0.4f, 0.8f, 0.4f, 0.5f)) // Semi-transparent
+                        ->set<float>("u_material_alpha", 0.5f)
+                )
+                .with<component::GeometryComponent>(cube_geom);
         }
 
         // Reflection plane and draw function removed (reflection pass disabled)
-
-        // 5. Create Materials
-        auto table_material = material::Material::Make(glm::vec3(0.6f, 0.6f, 0.6f));
-        table_material->setShininess(320.0f);
-        table_material->setSpecular(glm::vec3(1.0f, 1.0f, 1.0f));
-
-        auto leg_material = material::Material::Make(glm::vec3(0.6f, 0.3f, 0.1f));
-        leg_material->setShininess(16.0f);
-
-        auto sphere_material = material::Material::Make(glm::vec3(1.0f, 1.0f, 1.0f));
-        sphere_material->setShininess(128.0f);
-        sphere_material->setSpecular(glm::vec3(1.0f, 1.0f, 1.0f));
-
-        auto lamp_material = material::Material::Make(glm::vec3(0.1f, 0.4f, 0.8f));
-        lamp_material->setShininess(64.0f);
-        lamp_material->setSpecular(glm::vec3(1.0f, 1.0f, 1.0f));
 
 
         // 6. Common Components
@@ -331,7 +306,7 @@ int main() {
 
         // TABLE SCENE removed per user request.
         // Create arcball controllers from the actual camera nodes in each SceneGraph
-        auto sgA_cam_node = sgA->getNodeByName("sgA_cam");
+        auto sgA_cam_node = scene::graph()->getNodeByName("sgA_cam");
         if (sgA_cam_node) {
             table_arcball = arcball::ArcBallController::CreateFromCameraNode(sgA_cam_node);
             table_arcball->setTarget(glm::vec3(0.0f, 0.0f, 0.0f));
@@ -364,24 +339,69 @@ int main() {
         // update logic (se precisar animar algo)
     };
 
+    // ==================================================================================
+    // PRE-CONFIGURATION OF RENDER STATES
+    // ==================================================================================
+    
+    // State 1: Stencil Masking (Write 1s to stencil buffer where the plane is)
+    auto maskState = [](){
+        auto s = std::make_shared<framebuffer::RenderState>();
+        s->stencil().setTest(true);
+        // Equivalent to: glStencilFunc(GL_NEVER, 1, 0xFFFF)
+        s->stencil().setFunction(framebuffer::StencilFunc::Never, 1, 0xFFFF);
+        // Equivalent to: glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE)
+        s->stencil().setOperation(framebuffer::StencilOp::Replace, 
+                                framebuffer::StencilOp::Replace, 
+                                framebuffer::StencilOp::Replace);
+        return s;
+    }();
+
+    // State 2: Reflection Drawing (Draw only where stencil == 1)
+    auto reflectionState = [](){
+        auto s = std::make_shared<framebuffer::RenderState>();
+        s->stencil().setTest(true);
+        // Equivalent to: glStencilFunc(GL_EQUAL, 1, 0xFFFF)
+        s->stencil().setFunction(framebuffer::StencilFunc::Equal, 1, 0xFFFF);
+        // Equivalent to: glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP)
+        s->stencil().setOperation(framebuffer::StencilOp::Keep, 
+                                framebuffer::StencilOp::Keep, 
+                                framebuffer::StencilOp::Keep);
+        return s;
+    }();
+
+    // State 3: Blending (For the semi-transparent mirror surface)
+    auto blendState = [](){
+        auto s = std::make_shared<framebuffer::RenderState>();
+        s->blend().setEnabled(true);
+        // Equivalent to: glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        s->blend().setFunction(framebuffer::BlendFactor::SrcAlpha, 
+                            framebuffer::BlendFactor::OneMinusSrcAlpha);
+        return s;
+    }();
+
     // Render: draw both scene graphs (sgA, sgB)
     auto on_render = [&](double alpha) {
+        // 0. Clear buffers (Immediate operation)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
+        // ==================================================================================
+        // RENDER PASSES
+        // ==================================================================================
+
+        // Step 1: Mark reflector plane
+        // Push nullptr (Default Framebuffer) with maskState
+        framebuffer::stack()->push(nullptr, maskState); 
+        {
+            scene::graph()->drawSubtree("sgB_root");
+        }
+        framebuffer::stack()->pop(); // Automatically restores stencil state to default (Disabled)
+
         
-            // Step 1: Mark reflector plane in stencil buffer AND depth buffer
-            glEnable(GL_STENCIL_TEST);
-            glStencilFunc(GL_NEVER, 1, 0xFFFF);
-            glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
-            
-            // Draw plane geometry to stencil AND depth (no color)
-            if (sgB) sgB->draw();
-            
-            
-            // Step 2: Draw reflected scene where stencil = 1
-            glStencilFunc(GL_EQUAL, 1, 0xFFFF);
-            glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-            
+        // Step 2: Draw reflected scene
+        // Push nullptr with reflectionState
+        framebuffer::stack()->push(nullptr, reflectionState);
+        {
+            // Matrix math
             // Apply reflection transformation across plane y = -2.0
             // We mirror objects through the plane at y = -2
             glm::mat4 reflectionMatrix = glm::mat4(1.0f);
@@ -390,26 +410,30 @@ int main() {
             
             transform::stack()->push(reflectionMatrix);
             
+            // Note: glFrontFace is Rasterizer state, not FBO state, 
+            // so it remains a raw call as it is not covered by framebuffer.h
             // With negative scale on Y, winding order is reversed
-            glFrontFace(GL_CW);
-            if (sgA) sgA->draw();
+            glFrontFace(GL_CW); 
+            scene::graph()->drawSubtree("sgA_root");
             glFrontFace(GL_CCW);
             
             transform::stack()->pop();
-            
-            // Reset stencil state
-            glDisable(GL_STENCIL_TEST);
-            
-            // Step 3: Draw normal scene
-            if (sgA) sgA->draw();
-            
-            // Step 4: Draw reflector plane with blending on top
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            
-            if (sgB) sgB->draw();
-            
-            glDisable(GL_BLEND);
+        }
+        framebuffer::stack()->pop(); // Automatically restores stencil state to default (Disabled)
+
+
+        // Step 3: Draw normal scene
+        // No state push needed (uses default state from base of stack)
+        scene::graph()->drawSubtree("sgA_root");
+
+
+        // Step 4: Draw reflector plane with blending
+        // Push nullptr with blendState
+        framebuffer::stack()->push(nullptr, blendState);
+        {
+            scene::graph()->drawSubtree("sgB_root");
+        }
+        framebuffer::stack()->pop(); // Automatically restores blend state to default (Disabled)
 
         GL_CHECK("render");
     };

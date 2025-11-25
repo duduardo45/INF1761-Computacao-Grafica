@@ -167,7 +167,7 @@ int main() {
             phong_shader->configureDynamicUniform<glm::mat4>("u_model", transform::current);
             phong_shader->configureDynamicUniform<glm::mat4>("u_projectorViewProj", 
                 []() { return glm::mat4(1.0f); }); // Dummy projector matrix
-            phong_shader->configureDynamicUniform<float>("u_reflectionFactor", 
+            phong_shader->configureStaticUniform<float>("u_reflectionFactor", 
                 []() { return 0.4f; });
             material::stack()->configureShaderDefaults(phong_shader);
             phong_shader->Bake();
