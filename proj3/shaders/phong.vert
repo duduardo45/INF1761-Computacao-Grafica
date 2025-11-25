@@ -10,6 +10,7 @@ out vec3 v_normal;
 out vec3 v_tangent;
 out vec2 v_texCoord;
 out vec4 v_projTexCoord; // For projective texturing
+out vec4 v_FragPosLightSpace; // For shadow mapping
 
 // === Uniform Blocks ===
 layout (std140) uniform CameraMatrices {
@@ -26,6 +27,7 @@ uniform int num_clip_planes;
 // === Model/Projector Uniforms ===
 uniform mat4 u_model;
 uniform mat4 u_projectorViewProj; // Projector's View * Projection matrix
+uniform mat4 u_lightSpaceMatrix;
 
 void main()
 {
@@ -34,6 +36,7 @@ void main()
     
     v_worldPos = worldPos.xyz;
     v_texCoord = aTexCoord;
+    v_FragPosLightSpace = u_lightSpaceMatrix * worldPos;
 
     // Calculate normals/tangents in world space
     mat3 normalMatrix = transpose(inverse(mat3(u_model)));

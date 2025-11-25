@@ -122,12 +122,14 @@ int main() {
                 []() { return glm::mat4(1.0f); }); // Dummy projector matrix
             phong_shader->configureStaticUniform<float>("u_reflectionFactor", 
                 []() { return 0.4f; });
-            // Add uniform to control shadow rendering mode
-            phong_shader->configureStaticUniform<bool>("u_renderShadow", []() { return false; });
+            phong_shader->configureDynamicUniform<glm::mat4>("u_lightSpaceMatrix", 
+                []() { return light_view_proj_matrix; });
+            phong_shader->configureStaticUniform<float>("u_shadowBias", 
+                []() { return 0.005f; });
             material::stack()->configureShaderDefaults(phong_shader);
             phong_shader->Bake();
 
-            shadow_shader = shader::Shader::Make("shaders/shadow_map.vert", "shaders/shadow_map.frag");
+            shadow_shader = shader::Shader::Make("shaders/shadow.vert", "shaders/shadow.frag");
             shadow_shader->addResourceBlockToBind("CameraMatrices");
             shadow_shader->configureDynamicUniform<glm::mat4>("u_model", transform::current);
             shadow_shader->configureStaticUniform<float>("u_shadowBias", 
@@ -150,7 +152,7 @@ int main() {
             framebuffer::attachment::Format::DepthComponent24
         );
 
-        shadowFBO->attachToShader(shadow_shader, "u_shadowMap");
+        shadowFBO->attachToShader(shadow_shader, {{"shadow_depth_map", "u_shadowMap"}});
         
         // 4. Create Geometries
         auto cube_geom = Cube::Make();
@@ -158,9 +160,17 @@ int main() {
 
         // Create separate scene graph roots
         scene::graph()->addNode("sgA_root")
-            .with<component::ShaderComponent>(phong_shader);
+            .with<component::ShaderComponent>(phong_shader)
+            .with<component::TextureComponent>(
+                shadowFBO->getTexture("shadow_depth_map"),
+                "u_shadowMap", 1  // Bind shadow map to texture unit 1
+            );
         scene::graph()->addNode("sgB_root")
-            .with<component::ShaderComponent>(phong_shader);
+            .with<component::ShaderComponent>(phong_shader)
+            .with<component::TextureComponent>(
+                shadowFBO->getTexture("shadow_depth_map"),
+                "u_shadowMap", 1  // Bind shadow map to texture unit 1
+            );
 
         // Build sgA: cube and sphere
         {
@@ -372,27 +382,6 @@ int main() {
 
         // Clear the default framebuffer (Screen)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // 1. Bind the Depth Texture created in Pass 1
-        // Your Framebuffer class stores textures by name.
-        auto depthTex = shadowFBO->getTexture("shadow_depth_map");
-        
-        // Bind to Texture Unit 1 (assuming Unit 0 is diffuse texture)
-        // BACALHAU TODO: Swap this to push to the texture stack
-        glActiveTexture(GL_TEXTURE1);
-        depthTex->bind(); 
-
-        // 2. Configure Shader for Lighting
-        // BACALHAU TODO: Swap to configure uniforms properly
-        // Update ViewProjection to the CAMERA's perspective
-        glm::mat4 camViewProj = camera->getProjection() * camera->getView();
-        current_shader->setUniform("u_viewProjection", camViewProj);
-        
-        // Send the Light Space Matrix (so we can calculate shadow coordinates in fragment shader)
-        current_shader->setUniform("u_lightSpaceMatrix", lightSpaceMatrix);
-        
-        // Tell shader which texture unit the shadow map is on
-        current_shader->setUniform("u_shadowMap", 1); 
         
         // 3. Draw the Scene
         // Draw the casters (sgA)

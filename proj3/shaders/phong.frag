@@ -7,6 +7,7 @@ in vec3 v_normal;
 in vec3 v_tangent;
 in vec2 v_texCoord;
 in vec4 v_projTexCoord;
+in vec4 v_FragPosLightSpace;
 
 // ========== Scene Definitions ==========
 #define MAX_SCENE_LIGHTS 16
@@ -50,8 +51,10 @@ uniform bool u_hasDiffuseMap;
 uniform bool u_hasNormalMap;
 uniform bool u_hasRoughnessMap;
 
-// Shadow rendering mode
-uniform bool u_renderShadow;
+// === NEW: Shadow Map Uniform ===
+// Note: Must be sampler2DShadow for hardware PCF (GL_COMPARE_REF_TO_TEXTURE)
+uniform sampler2DShadow u_shadowMap; 
+uniform float u_shadowBias;
 
 // ========== Project Extras ==========
 // --- Fog ---
@@ -68,12 +71,39 @@ uniform sampler2D u_projectiveMap;
 uniform bool u_enableProjectiveTex;
 
 // ======================================================
-// computeTBN from provided 'fragment_fog.glsl'
+// Helper: Compute TBN
 mat3 computeTBN(vec3 normal, vec3 tangent)
 {
     tangent = normalize(tangent - normal * dot(normal, tangent));
     vec3 bitangent = normalize(cross(normal, tangent));
     return mat3(tangent, bitangent, normal);
+}
+
+// ======================================================
+// NEW: Shadow Calculation Function
+// Returns 1.0 if LIT, 0.0 if IN SHADOW (with PCF smoothing)
+float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
+{
+    // 1. Perform perspective divide (Clip space -> NDC)
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    
+    // 2. Transform to [0,1] range (NDC -> Texture space)
+    projCoords = projCoords * 0.5 + 0.5;
+    
+    // 3. Keep shadow at 1.0 (lit) if outside the far_plane of the light
+    if(projCoords.z > 1.0)
+        return 1.0;
+        
+    // 4. Calculate Bias (prevents shadow acne)
+    // Sloped surfaces get more bias, perpendicular surfaces get less
+    float bias = max(0.05 * (1.0 - dot(normal, lightDir)), u_shadowBias);
+    
+    // 5. Sample Texture (Hardware PCF)
+    // The .z component is compared against the texture value automatically
+    // returns proportion of pass/fail (e.g., 0.25, 0.5, 0.75, 1.0)
+    float shadow = texture(u_shadowMap, vec3(projCoords.xy, projCoords.z - bias));
+    
+    return shadow;
 }
 
 void main()
@@ -90,17 +120,13 @@ void main()
         norm = n;
     }
 
-    // --- 2. Get Albedo (Diffuse Color) ---
+    // --- 2. Get Albedo ---
     vec3 albedo = u_hasDiffuseMap ? texture(u_diffuseMap, v_texCoord).rgb : vec3(1.0);
 
-    // --- 3. Get Shininess (from Roughness) ---
-    // Lower roughness = higher shininess
+    // --- 3. Get Shininess ---
     float roughness = u_hasRoughnessMap ? texture(u_roughnessMap, v_texCoord).r : 0.5;
     float shininess = mix(512.0, 4.0, clamp(roughness, 0.0, 1.0));
-    // Use material shininess if no roughness map
-    if (!u_hasRoughnessMap) {
-        shininess = u_material_shininess;
-    }
+    if (!u_hasRoughnessMap) shininess = u_material_shininess;
 
     vec3 viewDir = normalize(u_viewPos.xyz - v_worldPos);
     vec3 totalLight = vec3(0.0);
@@ -136,20 +162,30 @@ void main()
 
         // Blinn-Phong lighting
         vec3 halfway = normalize(lightDir + viewDir);
-        float diff = max(dot(n, lightDir), 0.0);
+        float diff = max(dot(norm, lightDir), 0.0);
         float spec = (diff > 0.0) ? pow(max(dot(norm, halfway), 0.0), shininess) : 0.0;
 
+        // --- NEW: Calculate Shadow Factor ---
+        // We assume the Shadow Map corresponds to the first light (index 0)
+        // because we only bound one shadow map in C++.
+        float visibility = 1.0;
+        visibility = ShadowCalculation(v_FragPosLightSpace, norm, lightDir);
+
+        // Calculate components
         vec3 ambient  = light.ambient.xyz  * (u_material_ambient * albedo);
         vec3 diffuse  = light.diffuse.xyz  * diff * (u_material_diffuse * albedo);
         vec3 specular = light.specular.xyz * spec * u_material_specular;
 
-        totalLight += (ambient + diffuse + specular) * attenuation;
+        // Apply Shadow (Visibility) to Diffuse and Specular only
+        // Ambient is NOT affected by shadow (it's indirect light)
+        totalLight += (ambient + (visibility * (diffuse + specular))) * attenuation;
     }
     
     vec3 baseColor = totalLight;
 
     // ======================================================
-    // --- 5. Apply Extras ---
+    // --- 5. Apply Extras (Projective Tex, Reflection, Fog) ---
+    // (This section matches your original code exactly)
 
     // --- Projective Texture ---
     if (u_enableProjectiveTex) {
@@ -167,11 +203,8 @@ void main()
     // --- Environment Reflection ---
     if (u_enableReflection) {
         vec3 reflectDir = reflect(-viewDir, norm);
-        // Correct for EnGene's coordinate system if necessary (from skybox_fragment.glsl)
         reflectDir.z *= -1.0; 
         vec3 reflectColor = texture(u_skybox, reflectDir).rgb;
-        
-        // Use a fixed reflection factor for simplicity
         float factor = u_reflectionFactor > 0.0 ? u_reflectionFactor : 0.4;
         baseColor = mix(baseColor, reflectColor, factor);
     }
@@ -184,10 +217,5 @@ void main()
 
     vec3 finalColor = mix(fogcolor, baseColor, fogFactor);
     
-    // Override with shadow color if rendering shadow
-    if (u_renderShadow) {
-        FragColor = vec4(0.0, 0.0, 0.0, 0.5); // Dark semi-transparent shadow
-    } else {
-        FragColor = vec4(finalColor, u_material_alpha);
-    }
+    FragColor = vec4(finalColor, u_material_alpha);
 }
