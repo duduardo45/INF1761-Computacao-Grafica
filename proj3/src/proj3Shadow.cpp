@@ -40,8 +40,12 @@ component::PerspectiveCameraPtr camComp;
 component::LightComponentPtr point_light_comp;
 light::PointLightPtr point_light;
 
-
+// Shaders
 shader::ShaderPtr phong_shader;
+shader::ShaderPtr shadow_shader;
+
+// Shared resources
+glm::mat4 light_view_proj_matrix;
 
 // Reflection framebuffer
 framebuffer::FramebufferPtr shadowFBO;
@@ -122,6 +126,16 @@ int main() {
             phong_shader->configureStaticUniform<bool>("u_renderShadow", []() { return false; });
             material::stack()->configureShaderDefaults(phong_shader);
             phong_shader->Bake();
+
+            shadow_shader = shader::Shader::Make("shaders/shadow_map.vert", "shaders/shadow_map.frag");
+            shadow_shader->addResourceBlockToBind("CameraMatrices");
+            shadow_shader->configureDynamicUniform<glm::mat4>("u_model", transform::current);
+            shadow_shader->configureStaticUniform<float>("u_shadowBias", 
+                []() { return 0.005f; });
+            shadow_shader->configureStaticUniform<glm::mat4>("u_lightViewProj", []() { return light_view_proj_matrix; });
+            shadow_shader->Bake();
+
+
         } catch (const std::exception& e) {
             std::cerr << "Shader compilation failed: " << e.what() << std::endl;
             throw;
@@ -130,33 +144,23 @@ int main() {
         // 1. Create the Shadow FBO
         // We use a high resolution (2048x2048) for sharper shadows.
         // MakeShadowMap automatically configures GL_COMPARE_REF_TO_TEXTURE for hardware PCF.
-        auto shadowFBO = framebuffer::Framebuffer::MakeShadowMap(
+        shadowFBO = framebuffer::Framebuffer::MakeShadowMap(
             2048, 2048, 
             "shadow_depth_map", 
             framebuffer::attachment::Format::DepthComponent24
         );
 
-        // 2. Create RenderState for the Shadow Pass
-        // We often want to cull FRONT faces during the shadow pass to fix "peter panning" artifacts.
-        auto shadowPassState = [](){
-            auto s = std::make_shared<framebuffer::RenderState>();
-            s->depth().setTest(true);
-            s->depth().setWrite(true);
-            s->depth().setFunction(framebuffer::DepthFunc::Less);
-            
-            // Optional: If your engine supports setting cull face in RenderState, do it here.
-            // If not, you might need to handle glCullFace manually or add it to RenderState.
-            // For now, we rely on standard depth testing.
-            return s;
-        }();
+        shadowFBO->attachToShader(shadow_shader, "u_shadowMap");
         
         // 4. Create Geometries
         auto cube_geom = Cube::Make();
         auto sphere_geom = Sphere::Make(1.0f, 32, 64);
 
         // Create separate scene graph roots
-        scene::graph()->addNode("sgA_root");
-        scene::graph()->addNode("sgB_root");
+        scene::graph()->addNode("sgA_root")
+            .with<component::ShaderComponent>(phong_shader);
+        scene::graph()->addNode("sgB_root")
+            .with<component::ShaderComponent>(phong_shader);
 
         // Build sgA: cube and sphere
         {
@@ -164,7 +168,6 @@ int main() {
                 .with<component::TransformComponent>(
                     transform::Transform::Make()->translate(-1.5f, 0.0f, 0.0f)->scale(1.0f,1.0f,1.0f)
                 )
-                .with<component::ShaderComponent>(phong_shader)
                 .with<component::MaterialComponent>(
                     material::Material::Make(glm::vec3(0.8f,0.2f,0.2f))
                 )
@@ -174,7 +177,6 @@ int main() {
                 .with<component::TransformComponent>(
                     transform::Transform::Make()->translate(1.5f, 0.0f, 0.0f)->scale(0.8f,0.8f,0.8f)
                 )
-                .with<component::ShaderComponent>(phong_shader)
                 .with<component::MaterialComponent>(
                     material::Material::Make(glm::vec3(0.2f,0.2f,0.8f))
                 )
@@ -185,7 +187,6 @@ int main() {
                 .with<component::TransformComponent>(
                     transform::Transform::Make()->translate(0.0f, 0.0f, 0.0f)->scale(0.6f,0.6f,0.6f)
                 )
-                .with<component::ShaderComponent>(phong_shader)
                 .with<component::MaterialComponent>(
                     material::Material::Make(glm::vec3(1.0f, 0.4f, 0.7f))
                 )
@@ -236,7 +237,6 @@ int main() {
                 .with<component::TransformComponent>(
                     transform::Transform::Make()->translate(0.0f, -2.0f, 0.0f)->scale(40.0f,0.1f,40.0f)
                 )
-                .with<component::ShaderComponent>(phong_shader)
                 .with<component::MaterialComponent>(
                     material::Material::Make(glm::vec3(0.4f,0.8f,0.4f))
                         ->setDiffuse(glm::vec4(0.4f, 0.8f, 0.4f, 0.5f)) // Semi-transparent
@@ -306,57 +306,100 @@ int main() {
         return s;
     }();
 
+    
+
+    // 2. Create RenderState for the Shadow Pass
+    // We often want to cull FRONT faces during the shadow pass to fix "peter panning" artifacts.
+    auto shadowPassState = [](){
+        auto s = std::make_shared<framebuffer::RenderState>();
+        s->depth().setTest(true);
+        s->depth().setWrite(true);
+        s->depth().setFunction(framebuffer::DepthFunc::Less);
+        
+        // Optional: If your engine supports setting cull face in RenderState, do it here.
+        // If not, you might need to handle glCullFace manually or add it to RenderState.
+        // For now, we rely on standard depth testing.
+        return s;
+    }();
+
     // Render: draw both scene graphs
     auto on_render = [&](double alpha) {
-        // 0. Clear buffers
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+        // =============================================================
+        // CALCULATE LIGHT MATRICES
+        // =============================================================
+        glm::vec3 lightPos = glm::vec3(point_light_comp->getWorldTransform() * point_light->getPosition());
+        
+        // Define the view frustum for the light
+        // For a directional light, use glm::ortho. For point/spot, use glm::perspective.
+        float near_plane = 0.1f, far_plane = 20.0f;
+        glm::mat4 lightProj = glm::perspective(glm::radians(90.0f), 
+                                            (float)shadowFBO->getWidth() / shadowFBO->getHeight(), 
+                                            near_plane, far_plane);
+        
+        // Look at the center of the scene (or wherever sgA is)
+        glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        light_view_proj_matrix = lightProj * lightView;
 
-        // Step 1: Draw scene without shadow receivers (sgA)
+        // =============================================================
+        // PASS 1: SHADOW MAP GENERATION
+        // =============================================================
+        
+        // Push the Shadow FBO and the Shadow State
+        framebuffer::stack()->push(shadowFBO, shadowPassState);
+        {
+            // Clear ONLY the depth buffer (Shadow maps don't have color)
+            glClear(GL_DEPTH_BUFFER_BIT);
+
+            // Configure shader to use Light's ViewProjection
+            // Assuming your shader system has a way to set the view-proj matrix:
+            scene::graph()->getNodeByName("sgA_root")
+                ->payload().get<component::ShaderComponent>()
+                ->setShader(shadow_shader);
+
+            // We only render objects that CAST shadows (sgA)
+            // Note: Render face culling (Front Face Culling) is recommended here 
+            // to prevent self-shadowing acne, usually handled via glCullFace(GL_FRONT).
+            scene::graph()->drawSubtree("sgA_root");
+        }
+        framebuffer::stack()->pop(); // Restore Default FBO and previous State
+        scene::graph()->getNodeByName("sgA_root")
+            ->payload().get<component::ShaderComponent>()
+            ->setShader(phong_shader); // Restore original shader
+
+        // =============================================================
+        // PASS 2: LIGHTING / SCENE RENDERING
+        // =============================================================
+
+        // Clear the default framebuffer (Screen)
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // 1. Bind the Depth Texture created in Pass 1
+        // Your Framebuffer class stores textures by name.
+        auto depthTex = shadowFBO->getTexture("shadow_depth_map");
+        
+        // Bind to Texture Unit 1 (assuming Unit 0 is diffuse texture)
+        // BACALHAU TODO: Swap this to push to the texture stack
+        glActiveTexture(GL_TEXTURE1);
+        depthTex->bind(); 
+
+        // 2. Configure Shader for Lighting
+        // BACALHAU TODO: Swap to configure uniforms properly
+        // Update ViewProjection to the CAMERA's perspective
+        glm::mat4 camViewProj = camera->getProjection() * camera->getView();
+        current_shader->setUniform("u_viewProjection", camViewProj);
+        
+        // Send the Light Space Matrix (so we can calculate shadow coordinates in fragment shader)
+        current_shader->setUniform("u_lightSpaceMatrix", lightSpaceMatrix);
+        
+        // Tell shader which texture unit the shadow map is on
+        current_shader->setUniform("u_shadowMap", 1); 
+        
+        // 3. Draw the Scene
+        // Draw the casters (sgA)
         scene::graph()->drawSubtree("sgA_root");
         
-        // Step 2: Draw shadow receiver with ambient light only
-        // TODO: Need ambient-only rendering mode for sgB
-        // For now, draw the plane with full lighting
+        // Draw the receivers (sgB / Plane)
         scene::graph()->drawSubtree("sgB_root");
-        
-        // Step 3: For each light source, mark shadows in stencil and illuminate
-        glm::vec4 lightPos = point_light_comp->getWorldTransform() * point_light->getPosition();
-        glm::vec4 planeNormal = glm::vec4(0.0f, 1.0f, 0.0f, 2.0f); // Normal (0,1,0) and d=-2 for plane y=-2
-        
-        // Step 3a: Mark shadows in stencil buffer
-        // Push nullptr (Default FBO) with markShadowState
-        framebuffer::stack()->push(nullptr, markShadowState);
-        {
-            // Create shadow projection matrix
-            auto shadowMatrix = [](const glm::vec4& n, const glm::vec4& l) -> glm::mat4 {
-                float ndotl = glm::dot(glm::vec3(n), glm::vec3(l));
-                return glm::mat4(
-                    glm::vec4(ndotl + n.w - l.x * n.x, -l.y * n.x, -l.z * n.x, -n.x),
-                    glm::vec4(-l.x * n.y, ndotl + n.w - l.y * n.y, -l.z * n.y, -n.y),
-                    glm::vec4(-l.x * n.z, -l.y * n.z, ndotl + n.w - l.z * n.z, -n.z),
-                    glm::vec4(-l.x * n.w, -l.y * n.w, -l.z * n.w, ndotl)
-                );
-            };
-            
-            glm::mat4 shadowProj = shadowMatrix(planeNormal, lightPos);
-            
-            // Apply shadow matrix to u_model via transform stack
-            transform::stack()->push(shadowProj);
-            
-            // Draw scene to mark shadow volumes in stencil
-            scene::graph()->drawSubtree("sgA_root");
-            
-            transform::stack()->pop();
-        }
-        framebuffer::stack()->pop(); // Restore default state
-        
-        // Step 3b: Illuminate receiver where stencil is NOT marked (no shadow)
-        // Push nullptr with illuminateState
-        framebuffer::stack()->push(nullptr, illuminateState);
-        {
-            scene::graph()->drawSubtree("sgB_root");
-        }
-        framebuffer::stack()->pop(); // Restore default state
 
         GL_CHECK("render");
     };
