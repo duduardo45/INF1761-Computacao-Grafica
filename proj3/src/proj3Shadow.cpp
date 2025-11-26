@@ -130,10 +130,7 @@ int main() {
             phong_shader->Bake();
 
             shadow_shader = shader::Shader::Make("shaders/shadow.vert", "shaders/shadow.frag");
-            shadow_shader->addResourceBlockToBind("CameraMatrices");
             shadow_shader->configureDynamicUniform<glm::mat4>("u_model", transform::current);
-            shadow_shader->configureStaticUniform<float>("u_shadowBias", 
-                []() { return 0.005f; });
             shadow_shader->configureStaticUniform<glm::mat4>("u_lightViewProj", []() { return light_view_proj_matrix; });
             shadow_shader->Bake();
 
@@ -144,12 +141,12 @@ int main() {
         }
 
         // 1. Create the Shadow FBO
-        // We use a high resolution (2048x2048) for sharper shadows.
+        // We use a high resolution (1024x1024) for sharper shadows.
         // MakeShadowMap automatically configures GL_COMPARE_REF_TO_TEXTURE for hardware PCF.
         shadowFBO = framebuffer::Framebuffer::MakeShadowMap(
-            2048, 2048, 
+            1024, 1024, 
             "shadow_depth_map", 
-            framebuffer::attachment::Format::DepthComponent24
+            framebuffer::attachment::Format::Depth24Stencil8
         );
 
         shadowFBO->attachToShader(shadow_shader, {{"shadow_depth_map", "u_shadowMap"}});
@@ -163,20 +160,20 @@ int main() {
             .with<component::ShaderComponent>(phong_shader)
             .with<component::TextureComponent>(
                 shadowFBO->getTexture("shadow_depth_map"),
-                "u_shadowMap", 1  // Bind shadow map to texture unit 1
+                "u_shadowMap", 0  // Bind shadow map to texture unit 0
             );
         scene::graph()->addNode("sgB_root")
             .with<component::ShaderComponent>(phong_shader)
             .with<component::TextureComponent>(
                 shadowFBO->getTexture("shadow_depth_map"),
-                "u_shadowMap", 1  // Bind shadow map to texture unit 1
+                "u_shadowMap", 0  // Bind shadow map to texture unit 0
             );
 
         // Build sgA: cube and sphere
         {
             sgA.addNode("sgA_cube")
                 .with<component::TransformComponent>(
-                    transform::Transform::Make()->translate(-1.5f, 0.0f, 0.0f)->scale(1.0f,1.0f,1.0f)
+                    transform::Transform::Make()->translate(-1.2f, 0.0f, 0.0f)->scale(1.0f,1.0f,1.0f)
                 )
                 .with<component::MaterialComponent>(
                     material::Material::Make(glm::vec3(0.8f,0.2f,0.2f))
@@ -185,7 +182,7 @@ int main() {
 
             sgA.addNode("sgA_sphere")
                 .with<component::TransformComponent>(
-                    transform::Transform::Make()->translate(1.5f, 0.0f, 0.0f)->scale(0.8f,0.8f,0.8f)
+                    transform::Transform::Make()->translate(1.2f, 0.0f, 0.0f)->scale(0.8f,0.8f,0.8f)
                 )
                 .with<component::MaterialComponent>(
                     material::Material::Make(glm::vec3(0.2f,0.2f,0.8f))
@@ -195,7 +192,7 @@ int main() {
             // Add pink sphere at origin
             sgA.addNode("sgA_pink_sphere")
                 .with<component::TransformComponent>(
-                    transform::Transform::Make()->translate(0.0f, 0.0f, 0.0f)->scale(0.6f,0.6f,0.6f)
+                    transform::Transform::Make()->translate(0.0f, 0.5f, 0.0f)->scale(0.6f,0.6f,0.6f)
                 )
                 .with<component::MaterialComponent>(
                     material::Material::Make(glm::vec3(1.0f, 0.4f, 0.7f))
@@ -225,12 +222,12 @@ int main() {
             // Add a point light to sgA (positioned relative to sgA's root)
             light::PointLightParams pparams;
             pparams.position = glm::vec4(2.0f, 3.0f, 2.0f, 1.0f);
-            pparams.ambient = glm::vec4(0.05f, 0.05f, 0.05f, 1.0f);
+            pparams.ambient = glm::vec4(0.45f, 0.45f, 0.45f, 1.0f);
             pparams.diffuse = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
             pparams.specular = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
             pparams.constant = 1.0f;
-            pparams.linear = 0.09f;
-            pparams.quadratic = 0.032f;
+            pparams.linear = 0.009f;
+            pparams.quadratic = 0.0032f;
             point_light = light::PointLight::Make(pparams);
             point_light_comp = component::LightComponent::Make(point_light, transform::Transform::Make());
             
@@ -298,20 +295,10 @@ int main() {
     // State 2: Illuminate Receivers (Blend + Depth Equal + Stencil 0)
     auto illuminateState = [](){
         auto s = std::make_shared<framebuffer::RenderState>();
-        
-        // Stencil: Only draw where stencil == 0 (no shadow)
-        s->stencil().setTest(true);
-        s->stencil().setFunction(framebuffer::StencilFunc::Equal, 0, 0xFFFF);
-        s->stencil().setOperation(framebuffer::StencilOp::Keep, 
-                                  framebuffer::StencilOp::Keep, 
-                                  framebuffer::StencilOp::Keep);
-        
-        // Blend: Additive (One, One)
-        s->blend().setEnabled(true);
-        s->blend().setFunction(framebuffer::BlendFactor::One, framebuffer::BlendFactor::One);
-        
         // Depth: Equal (to draw exactly on top of the ambient pass)
-        s->depth().setFunction(framebuffer::DepthFunc::Equal);
+        s->depth().setTest(true);
+        s->depth().setWrite(true);
+        s->depth().setFunction(framebuffer::DepthFunc::LEqual);
         
         return s;
     }();
@@ -334,6 +321,8 @@ int main() {
 
     // Render: draw both scene graphs
     auto on_render = [&](double alpha) {
+        glCullFace(GL_BACK); // Ensure back face culling is enabled
+        // glFrontFace(GL_CCW);
         // =============================================================
         // CALCULATE LIGHT MATRICES
         // =============================================================
@@ -341,7 +330,7 @@ int main() {
         
         // Define the view frustum for the light
         // For a directional light, use glm::ortho. For point/spot, use glm::perspective.
-        float near_plane = 0.1f, far_plane = 20.0f;
+        float near_plane = 1.0f, far_plane = 20.0f;
         glm::mat4 lightProj = glm::perspective(glm::radians(90.0f), 
                                             (float)shadowFBO->getWidth() / shadowFBO->getHeight(), 
                                             near_plane, far_plane);
@@ -357,6 +346,7 @@ int main() {
         // Push the Shadow FBO and the Shadow State
         framebuffer::stack()->push(shadowFBO, shadowPassState);
         {
+            glCullFace(GL_FRONT); 
             // Clear ONLY the depth buffer (Shadow maps don't have color)
             glClear(GL_DEPTH_BUFFER_BIT);
 
@@ -375,20 +365,23 @@ int main() {
         scene::graph()->getNodeByName("sgA_root")
             ->payload().get<component::ShaderComponent>()
             ->setShader(phong_shader); // Restore original shader
-
+        glCullFace(GL_BACK);
         // =============================================================
         // PASS 2: LIGHTING / SCENE RENDERING
         // =============================================================
 
         // Clear the default framebuffer (Screen)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        
+
+        framebuffer::stack()->push(nullptr, illuminateState); // Default FBO and default State
         // 3. Draw the Scene
         // Draw the casters (sgA)
         scene::graph()->drawSubtree("sgA_root");
         
         // Draw the receivers (sgB / Plane)
         scene::graph()->drawSubtree("sgB_root");
+
+        framebuffer::stack()->pop(); // Restore Default FBO and previous State
 
         GL_CHECK("render");
     };
@@ -397,9 +390,9 @@ int main() {
     config.title = "Project 3: Reflections and Shadows";
     config.width = 1280;
     config.height = 720;
-    config.clearColor[0] = 1.0f;
-    config.clearColor[1] = 1.0f;
-    config.clearColor[2] = 1.0f;
+    config.clearColor[0] = 0.0f;
+    config.clearColor[1] = 0.2f;
+    config.clearColor[2] = 0.5f;
     config.clearColor[3] = 1.0f;
 
     try {

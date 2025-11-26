@@ -17,7 +17,7 @@ FetchContent_Populate(CoreGene)
 # FetchContent_GetProperties(CoreGene)
 
 # Adiciona o executável
-add_executable(${PROJECT_NAME} src/proj3Shadow.cpp)
+add_executable(${PROJECT_NAME} src/proj3.cpp)
 target_compile_options(${PROJECT_NAME} PRIVATE -g)
 
 # Adiciona o caminho para as bibliotecas de inclusão
